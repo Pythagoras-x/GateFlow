@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "gateflow-core",
+    "gateflow-attendance",
 ]
 resolver = "2"
 

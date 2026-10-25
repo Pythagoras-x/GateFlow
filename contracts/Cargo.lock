@@ -645,6 +645,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "gateflow-attendance"
+version = "0.1.0"
+dependencies = [
+ "gateflow-core",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "gateflow-core"
 version = "0.1.0"
 dependencies = [
