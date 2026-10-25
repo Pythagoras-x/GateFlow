@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  plan      String   @default("STANDARD")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sites     Site[]
+  users     User[]
+  employees Employee[]
+
+  @@map("tenants")
+}
+
+model Site {
+  id           String   @id @default(uuid())
+  tenantId     String?
+  name         String
+  siteIdHash   String   @unique
+  timezone     String   @default("UTC")
+  latitude     Float?
+  longitude    Float?
+  radiusMeters Float?   @default(100.0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant?            @relation(fields: [tenantId], references: [id])
+  events       AttendanceEvent[]
+  anchors      Anchor[]
+
+  @@map("sites")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String?
+  emailEnc     String   @unique
+  role         String   @default("Security") // Admin, HR, Security, Host, Auditor
+  passwordHash String
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@map("users")
+}
+
+model Shift {
+  id           String     @id @default(uuid())
+  name         String
+  startTime    String     @default("09:00")
+  endTime      String     @default("17:00")
+  graceMinutes Int        @default(15)
+
+  employees    Employee[]
+
+  @@map("shifts")
+}
+
+model Employee {
+  id         String   @id @default(uuid())
+  tenantId   String?
+  employeeNo String   @unique
+  nameEnc    String
+  phoneEnc   String?
+  department String
+  shiftId    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant     Tenant?           @relation(fields: [tenantId], references: [id])
+  shift      Shift?            @relation(fields: [shiftId], references: [id])
+  devices    Device[]
+  events     AttendanceEvent[]
+
+  @@map("employees")
+}
+
+model Device {
+  id         String   @id @default(uuid())
+  employeeId String
+  publicKey  String
+  platform   String   @default("web")
+  boundAt    DateTime @default(now())
+
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("devices")
+}
+
+model AttendanceEvent {
+  id          String   @id @default(uuid())
+  employeeId  String
+  siteId      String
+  type        String   // IN, OUT
+  occurredAt  DateTime @default(now())
+  method      String   @default("QR") // QR, NFC, BLE, KIOSK, MANUAL
+  leafHash    String   @unique
+  saltEnc     String
+  nonce       String
+  anchorId    String?
+
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  site        Site     @relation(fields: [siteId], references: [id])
+  anchor      Anchor?  @relation(fields: [anchorId], references: [id])
+  proof       MerkleProof?
+  corrections Correction[]
+
+  @@index([siteId, occurredAt])
+  @@map("attendance_events")
+}
+
+model Anchor {
+  id          String   @id @default(uuid())
+  siteId      String
+  period      BigInt
+  merkleRoot  String
+  txHash      String?
+  ledger      Int?
+  status      String   @default("PENDING") // PENDING, CONFIRMED, FAILED
+  createdAt   DateTime @default(now())
+  confirmedAt DateTime?
+
+  site        Site              @relation(fields: [siteId], references: [id])
+  events      AttendanceEvent[]
+
+  @@unique([siteId, period])
+  @@map("anchors")
+}
+
+model MerkleProof {
+  id        String   @id @default(uuid())
+  eventId   String   @unique
+  proofJson String
+  createdAt DateTime @default(now())
+
+  event     AttendanceEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@map("merkle_proofs")
+}
+
+model Correction {
+  id            String   @id @default(uuid())
+  eventId       String
+  reason        String
+  requestedBy   String
+  approvedBy    String
+  onchainTxHash String?
+  createdAt     DateTime @default(now())
+
+  event         AttendanceEvent @relation(fields: [eventId], references: [id])
+
+  @@map("corrections")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String
+  action    String
+  entity    String
+  payload   String   // JSON string
+  prevHash  String?
+  entryHash String
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
