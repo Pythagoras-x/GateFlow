@@ -1,0 +1,18 @@
+{
+  "name": "gateflow-monorepo",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "contracts:build": "cd contracts && cargo build --target wasm32v1-none --release || cd contracts && cargo build --target wasm32-unknown-unknown --release",
+    "contracts:test": "cd contracts && cargo test"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4",
+    "typescript": "^5.7.3"
+  },
+  "packageManager": "pnpm@10.28.2"
+}
