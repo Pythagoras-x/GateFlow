@@ -936,11 +936,11 @@ Please **do not** open public issues for security problems. Email `security@your
 ## 20. Roadmap
 
 ### Phase 1: MVP (testnet)
-- [ ] Monorepo, CI and local dev environment
-- [ ] Employee enrolment and QR check-in/out
-- [ ] Daily Merkle anchoring to Soroban testnet
-- [ ] Admin dashboard (employees, sites, attendance, reports)
-- [ ] Proof generation and verification
+- [x] Monorepo, CI and local dev environment
+- [x] Employee enrolment and QR check-in/out
+- [x] Daily Merkle anchoring to Soroban testnet
+- [x] Admin dashboard (employees, sites, attendance, reports)
+- [x] Proof generation and verification
 
 ### Phase 2: Visitor management
 - [ ] Visitor pre-registration and pass issuance
