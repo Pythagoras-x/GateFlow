@@ -5,6 +5,7 @@ import { SitesModule } from './sites/sites.module';
 import { EmployeesModule } from './employees/employees.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { AttendanceModule } from './attendance/attendance.module';
+import { AnchoringModule } from './anchoring/anchoring.module';
 import { PrismaService } from './common/prisma.service';
 import { EncryptionService } from './common/encryption.service';
 
@@ -16,6 +17,7 @@ import { EncryptionService } from './common/encryption.service';
     EmployeesModule,
     ShiftsModule,
     AttendanceModule,
+    AnchoringModule,
   ],
   providers: [PrismaService, EncryptionService],
 })
