@@ -943,16 +943,18 @@ Please **do not** open public issues for security problems. Email `security@your
 - [x] Proof generation and verification
 
 ### Phase 2: Visitor management
-- [ ] Visitor pre-registration and pass issuance
-- [ ] Signed QR delivery via email/SMS/WhatsApp
-- [ ] Gate/kiosk scanner app with offline mode
-- [ ] Revocation, expiry and host notifications
-- [ ] Walk-in registration and approval
+- [x] Soroban smart contract for visitor pass management (`gateflow-visitors`)
+- [x] Visitor pre-registration with AES-256 encrypted PII
+- [x] Time-bound pass issuance anchored on Stellar
+- [x] Security Guard Gate Terminal scanner UI (`apps/admin/src/app/gate`)
+- [x] Instant on-chain pass revocation and automatic expiry checks
+- [x] Kiosk walk-in visitor registration workflow
+- [x] Dual public proof & visitor pass verifier application (`apps/verifier`)
 
 ### Phase 3: Hardening
 - [ ] Fee sponsorship with spending guards
 - [ ] Full RBAC and audit log export
-- [ ] Public auditor verification page
+- [x] Public auditor verification page (Merkle proofs + Soroban passes)
 - [ ] NFC, BLE and device-binding presence checks
 - [ ] Payroll and HRIS integrations, webhooks
 
