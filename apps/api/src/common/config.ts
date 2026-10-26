@@ -13,6 +13,7 @@ export const config = {
     rpcUrl: process.env.SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org',
     coreContractId: process.env.CORE_CONTRACT_ID || '',
     attendanceContractId: process.env.ATTENDANCE_CONTRACT_ID || '',
+    visitorsContractId: process.env.VISITORS_CONTRACT_ID || '',
     sponsorSecret: process.env.SPONSOR_SECRET || '',
     anchorerSecret: process.env.ANCHORER_SECRET || '',
     useMock: process.env.STELLAR_USE_MOCK !== 'false',

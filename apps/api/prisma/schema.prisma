@@ -17,6 +17,7 @@ model Tenant {
   sites     Site[]
   users     User[]
   employees Employee[]
+  visitors  Visitor[]
 
   @@map("tenants")
 }
@@ -36,6 +37,8 @@ model Site {
   tenant       Tenant?            @relation(fields: [tenantId], references: [id])
   events       AttendanceEvent[]
   anchors      Anchor[]
+  passes       VisitorPass[]
+  gateLogs     GateLog[]
 
   @@map("sites")
 }
@@ -174,4 +177,61 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+model Visitor {
+  id         String   @id @default(uuid())
+  tenantId   String?
+  nameEnc    String
+  emailEnc   String
+  phoneEnc   String?
+  companyEnc String?
+  purpose    String
+  hostId     String
+  status     String   @default("PRE_REGISTERED")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant     Tenant?       @relation(fields: [tenantId], references: [id])
+  passes     VisitorPass[]
+
+  @@map("visitors")
+}
+
+model VisitorPass {
+  id            String   @id @default(uuid())
+  visitorId     String
+  hostId        String
+  siteId        String
+  passIdHash    String   @unique
+  passHash      String
+  validFrom     DateTime
+  validUntil    DateTime
+  status        String   @default("ISSUED") // ISSUED, ENTERED, EXITED, REVOKED, EXPIRED
+  onchainTxHash String?
+  qrToken       String?
+  entryTime     DateTime?
+  exitTime      DateTime?
+  createdAt     DateTime @default(now())
+
+  visitor       Visitor   @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  site          Site      @relation(fields: [siteId], references: [id])
+  logs          GateLog[]
+
+  @@map("visitor_passes")
+}
+
+model GateLog {
+  id        String   @id @default(uuid())
+  passId    String
+  siteId    String
+  guardId   String?
+  type      String   // ENTRY, EXIT
+  timestamp DateTime @default(now())
+  notes     String?
+
+  pass      VisitorPass @relation(fields: [passId], references: [id], onDelete: Cascade)
+  site      Site        @relation(fields: [siteId], references: [id])
+
+  @@map("gate_logs")
 }
