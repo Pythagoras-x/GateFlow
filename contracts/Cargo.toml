@@ -2,6 +2,7 @@
 members = [
     "gateflow-core",
     "gateflow-attendance",
+    "gateflow-visitors",
 ]
 resolver = "2"
 

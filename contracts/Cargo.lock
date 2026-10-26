@@ -660,6 +660,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "gateflow-visitors"
+version = "0.1.0"
+dependencies = [
+ "gateflow-core",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
