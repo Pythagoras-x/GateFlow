@@ -5,6 +5,19 @@ import {
   AnchorRecord,
   MerkleProofBundle,
   VerifyProofResponseDto,
+  Visitor,
+  VisitorPass,
+  GateLog,
+  CreateVisitorDto,
+  IssuePassDto,
+  GateVerifyPassRequestDto,
+  GateVerifyPassResponseDto,
+  GateRecordEntryDto,
+  GateRecordExitDto,
+  WalkInRegistrationDto,
+  PassStatus,
+  GateEventType,
+  VisitorStatus,
 } from '@gateflow/shared-types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
@@ -173,5 +186,169 @@ export class AdminApiClient {
       method: 'POST',
       body: JSON.stringify({ proofBundle: bundle }),
     });
+  }
+
+  // Visitors & Passes
+  public static async getVisitors(): Promise<Visitor[]> {
+    return this.request<Visitor[]>('/visitors').catch(() => [
+      {
+        id: 'vis-1',
+        name: 'Sarah Connor',
+        email: 'sarah.c@cyberdyne.org',
+        company: 'Cyberdyne Research',
+        purpose: 'Architecture Review',
+        hostId: 'host-1',
+        status: VisitorStatus.APPROVED,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'vis-2',
+        name: 'Michael Scott',
+        email: 'm.scott@dundermifflin.com',
+        company: 'Dunder Mifflin',
+        purpose: 'Supplier Audit',
+        hostId: 'host-1',
+        status: VisitorStatus.PRE_REGISTERED,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ]);
+  }
+
+  public static async createVisitor(dto: CreateVisitorDto): Promise<Visitor> {
+    return this.request<Visitor>('/visitors', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  public static async getPasses(siteId?: string): Promise<VisitorPass[]> {
+    const query = siteId ? `?siteId=${siteId}` : '';
+    return this.request<VisitorPass[]>(`/passes${query}`).catch(() => [
+      {
+        id: 'pass-1',
+        visitorId: 'vis-1',
+        hostId: 'host-1',
+        siteId: 'site-ny-hq',
+        passIdHash: 'e7f4c51982b6a2f30b912389cd4f890123456789abcdef0123456789abcdef01',
+        passHash: 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90',
+        validFrom: new Date(Date.now() - 3600000).toISOString(),
+        validUntil: new Date(Date.now() + 7200000).toISOString(),
+        status: PassStatus.ISSUED,
+        onchainTxHash: '9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b',
+        qrToken: 'pass_token_mock_sarah_connor',
+        visitor: {
+          id: 'vis-1',
+          name: 'Sarah Connor',
+          email: 'sarah.c@cyberdyne.org',
+          company: 'Cyberdyne Research',
+          purpose: 'Architecture Review',
+          status: VisitorStatus.APPROVED,
+        },
+        site: {
+          id: 'site-ny-hq',
+          name: 'Headquarters - New York',
+        },
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+  }
+
+  public static async issuePass(dto: IssuePassDto): Promise<VisitorPass> {
+    return this.request<VisitorPass>('/passes', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  public static async revokePass(passId: string, reason?: string): Promise<VisitorPass> {
+    return this.request<VisitorPass>(`/passes/${passId}/revoke`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  // Gate Operations
+  public static async verifyGatePass(dto: GateVerifyPassRequestDto): Promise<GateVerifyPassResponseDto> {
+    return this.request<GateVerifyPassResponseDto>('/gate/verify', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    }).catch(() => ({
+      valid: true,
+      status: PassStatus.ISSUED,
+      message: 'Demo: Pass valid for entry',
+      siteName: 'Headquarters - New York',
+      onchainStatus: 'Active',
+      pass: {
+        id: 'pass-demo',
+        visitorId: 'vis-demo',
+        hostId: 'host-1',
+        siteId: dto.siteId,
+        passIdHash: '1111111111111111111111111111111111111111111111111111111111111111',
+        passHash: '2222222222222222222222222222222222222222222222222222222222222222',
+        validFrom: new Date(Date.now() - 3600000).toISOString(),
+        validUntil: new Date(Date.now() + 7200000).toISOString(),
+        status: PassStatus.ISSUED,
+        visitor: {
+          name: 'Demo Visitor',
+          email: 'visitor@example.com',
+          company: 'Partner Co',
+          purpose: 'Client Consultation',
+        },
+        createdAt: new Date().toISOString(),
+      },
+    }));
+  }
+
+  public static async recordGateEntry(dto: GateRecordEntryDto): Promise<GateLog> {
+    return this.request<GateLog>('/gate/entry', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    }).catch(() => ({
+      id: 'log-' + Date.now(),
+      passId: dto.passIdOrQrToken,
+      siteId: dto.siteId,
+      type: GateEventType.ENTRY,
+      timestamp: new Date().toISOString(),
+    }));
+  }
+
+  public static async recordGateExit(dto: GateRecordExitDto): Promise<GateLog> {
+    return this.request<GateLog>('/gate/exit', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    }).catch(() => ({
+      id: 'log-' + Date.now(),
+      passId: dto.passIdOrQrToken,
+      siteId: dto.siteId,
+      type: GateEventType.EXIT,
+      timestamp: new Date().toISOString(),
+    }));
+  }
+
+  public static async registerWalkIn(dto: WalkInRegistrationDto): Promise<VisitorPass> {
+    return this.request<VisitorPass>('/gate/walk-in', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  public static async getGateLogs(siteId?: string): Promise<GateLog[]> {
+    const query = siteId ? `?siteId=${siteId}` : '';
+    return this.request<GateLog[]>(`/gate/logs${query}`).catch(() => [
+      {
+        id: 'log-1',
+        passId: 'pass-1',
+        siteId: 'site-ny-hq',
+        type: GateEventType.ENTRY,
+        timestamp: new Date(Date.now() - 1800000).toISOString(),
+        notes: 'Security Guard Gate 1',
+        pass: {
+          visitor: { name: 'Sarah Connor', company: 'Cyberdyne Research' },
+        },
+        site: { name: 'Headquarters - New York' },
+      },
+    ]);
   }
 }

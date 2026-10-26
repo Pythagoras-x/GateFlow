@@ -10,6 +10,8 @@ import {
   Clock,
   ShieldCheck,
   FileCheck2,
+  UserCheck,
+  QrCode,
 } from 'lucide-react';
 
 const navigation = [
@@ -17,6 +19,8 @@ const navigation = [
   { name: 'Sites', href: '/sites', icon: Building2 },
   { name: 'Employees', href: '/employees', icon: Users },
   { name: 'Attendance', href: '/attendance', icon: Clock },
+  { name: 'Visitors & Passes', href: '/visitors', icon: UserCheck },
+  { name: 'Gate Terminal', href: '/gate', icon: QrCode },
   { name: 'Anchors (On-chain)', href: '/anchors', icon: ShieldCheck },
 ];
 
