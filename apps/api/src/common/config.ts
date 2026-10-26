@@ -4,8 +4,8 @@ dotenv.config();
 export const config = {
   port: parseInt(process.env.PORT || '3001', 10),
   jwtSecret: process.env.JWT_SECRET || 'gateflow-default-development-secret-jwt-key!',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '15m',
-  refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '7d',
+  jwtExpiresIn: (process.env.JWT_EXPIRES_IN || '15m') as any,
+  refreshTokenExpiresIn: (process.env.REFRESH_TOKEN_EXPIRES_IN || '7d') as any,
   qrTokenTtlSeconds: parseInt(process.env.QR_TOKEN_TTL_SECONDS || '30', 10),
   stellar: {
     network: process.env.STELLAR_NETWORK || 'testnet',

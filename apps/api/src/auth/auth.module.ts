@@ -15,7 +15,7 @@ import { config } from '../common/config';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: config.jwtSecret,
-      signOptions: { expiresIn: config.jwtExpiresIn },
+      signOptions: { expiresIn: config.jwtExpiresIn as any },
     }),
   ],
   providers: [

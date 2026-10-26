@@ -48,10 +48,10 @@ export class AuthService {
     };
 
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: config.jwtExpiresIn,
+      expiresIn: config.jwtExpiresIn as any,
     });
     const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: config.refreshTokenExpiresIn,
+      expiresIn: config.refreshTokenExpiresIn as any,
     });
 
     await this.audit.logAction(user.id, 'USER_LOGIN', 'User', { email: dto.email });
@@ -84,7 +84,7 @@ export class AuthService {
       const email = this.encryption.decrypt(user.emailEnc);
       const newAccessToken = this.jwtService.sign(
         { sub: user.id, email, role: user.role },
-        { expiresIn: config.jwtExpiresIn }
+        { expiresIn: config.jwtExpiresIn as any }
       );
 
       return { accessToken: newAccessToken };

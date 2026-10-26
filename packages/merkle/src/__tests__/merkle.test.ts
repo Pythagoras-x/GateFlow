@@ -45,6 +45,12 @@ describe('Merkle Package', () => {
   });
 
   describe('Merkle Tree and Proof Verification', () => {
+    it('handles empty tree correctly and throws on proof request', () => {
+      const tree = new GateFlowMerkleTree([]);
+      expect(tree.getRoot()).toHaveLength(64);
+      expect(() => tree.getProof(0)).toThrow('Cannot generate proof for an empty tree');
+    });
+
     it('handles single-leaf tree correctly', () => {
       const leaf = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
       const tree = new GateFlowMerkleTree([leaf]);

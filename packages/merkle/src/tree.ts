@@ -52,6 +52,10 @@ export class GateFlowMerkleTree {
   }
 
   public getProof(leafIndexOrHash: number | string): MerkleProofPathItem[] {
+    if (this.leaves.length === 0) {
+      throw new Error('Cannot generate proof for an empty tree');
+    }
+
     let index: number;
     if (typeof leafIndexOrHash === 'string') {
       index = this.leaves.indexOf(leafIndexOrHash);
