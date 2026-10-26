@@ -4,6 +4,8 @@ import {
   AttendanceMethod,
   AnchorStatus,
   PassStatus,
+  GateEventType,
+  VisitorStatus,
 } from './enums';
 
 export interface Tenant {
@@ -148,4 +150,49 @@ export interface AuditLog {
   prevHash?: string;
   entryHash: string;
   createdAt: string;
+}
+
+export interface Visitor {
+  id: string;
+  tenantId?: string;
+  name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  purpose: string;
+  hostId: string;
+  status: VisitorStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VisitorPass {
+  id: string;
+  visitorId: string;
+  hostId: string;
+  siteId: string;
+  passIdHash: string; // 32-byte hex ID on Soroban
+  passHash: string;   // 32-byte cryptographic hash
+  validFrom: string;  // ISO timestamp
+  validUntil: string;
+  status: PassStatus;
+  onchainTxHash?: string;
+  qrToken?: string;
+  entryTime?: string;
+  exitTime?: string;
+  visitor?: Partial<Visitor>;
+  site?: Partial<Site>;
+  createdAt: string;
+}
+
+export interface GateLog {
+  id: string;
+  passId: string;
+  siteId: string;
+  guardId?: string;
+  type: GateEventType;
+  timestamp: string;
+  notes?: string;
+  pass?: Partial<VisitorPass>;
+  site?: Partial<Site>;
 }

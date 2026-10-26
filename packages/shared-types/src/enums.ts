@@ -41,3 +41,17 @@ export enum PassStatus {
   REVOKED = 'REVOKED',
   EXPIRED = 'EXPIRED',
 }
+
+export enum GateEventType {
+  ENTRY = 'ENTRY',
+  EXIT = 'EXIT',
+}
+
+export enum VisitorStatus {
+  PRE_REGISTERED = 'PRE_REGISTERED',
+  APPROVED = 'APPROVED',
+  ACTIVE = 'ACTIVE',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+  BLACKLISTED = 'BLACKLISTED',
+}

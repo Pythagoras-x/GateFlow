@@ -3,6 +3,9 @@ import {
   AttendanceType,
   AttendanceMethod,
   AnchorStatus,
+  PassStatus,
+  GateEventType,
+  VisitorStatus,
 } from './enums';
 import {
   Site,
@@ -10,6 +13,9 @@ import {
   AttendanceEvent,
   AnchorRecord,
   MerkleProofBundle,
+  Visitor,
+  VisitorPass,
+  GateLog,
 } from './models';
 
 // Auth
@@ -134,4 +140,74 @@ export interface VerifyProofResponseDto {
   ledgerTimestamp?: number;
   status: 'VERIFIED' | 'TAMPERED_PROOF' | 'NOT_ANCHORED' | 'LEAF_MISMATCH';
   message: string;
+}
+
+// Visitors and Passes
+export interface CreateVisitorDto {
+  name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  purpose: string;
+  hostId?: string;
+}
+
+export interface IssuePassDto {
+  visitorId: string;
+  siteId: string;
+  validFrom: string; // ISO string
+  validUntil: string; // ISO string
+  notes?: string;
+}
+
+export interface RevokePassDto {
+  passId: string;
+  reason?: string;
+}
+
+export interface GateVerifyPassRequestDto {
+  passIdOrQrToken: string;
+  siteId: string;
+}
+
+export interface GateVerifyPassResponseDto {
+  valid: boolean;
+  status: PassStatus;
+  message: string;
+  pass?: VisitorPass;
+  onchainStatus?: string;
+  siteName?: string;
+}
+
+export interface GateRecordEntryDto {
+  passIdOrQrToken: string;
+  siteId: string;
+  guardId?: string;
+  notes?: string;
+}
+
+export interface GateRecordExitDto {
+  passIdOrQrToken: string;
+  siteId: string;
+  guardId?: string;
+  notes?: string;
+}
+
+export interface WalkInRegistrationDto {
+  name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  purpose: string;
+  hostId: string;
+  siteId: string;
+  durationHours?: number;
+}
+
+export interface VisitorPassQueryDto {
+  siteId?: string;
+  hostId?: string;
+  status?: PassStatus;
+  page?: number;
+  limit?: number;
 }
