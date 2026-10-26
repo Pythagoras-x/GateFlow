@@ -4,6 +4,7 @@ import {
   IStellarClient,
   OnchainAnchorData,
   OnchainAnchorResult,
+  OnchainPassData,
   StellarConfig,
 } from './types';
 import { normalizeBytes32Hex } from './utils';
@@ -12,19 +13,24 @@ export class MockStellarClient implements IStellarClient {
   private adminAddress: string = 'GADMIN0000000000000000000000000000000000000000000000GATEFLOW';
   private coreContractId: string = 'CCOR0000000000000000000000000000000000000000000000GATEFLOW';
   private attendanceContractId: string = 'CATT0000000000000000000000000000000000000000000000GATEFLOW';
+  private visitorsContractId: string = 'CVIS0000000000000000000000000000000000000000000000GATEFLOW';
 
   private registeredSites = new Set<string>();
   private roles = new Map<string, Set<OnchainContractRole>>();
   private anchors = new Map<string, OnchainAnchorData>(); // key: `${siteIdHex}:${period}`
   private corrections = new Map<string, boolean>();
+  private passes = new Map<string, OnchainPassData>();
 
   constructor(config: StellarConfig = {}) {
     if (config.coreContractId) this.coreContractId = config.coreContractId;
     if (config.attendanceContractId) this.attendanceContractId = config.attendanceContractId;
+    if (config.visitorsContractId) this.visitorsContractId = config.visitorsContractId;
 
-    // Grant Admin & Anchorer role to default mock accounts
+    // Grant Admin & Anchorer & Host role to default mock accounts
     this.addRoleInternal(this.adminAddress, OnchainContractRole.Admin);
     this.addRoleInternal(this.adminAddress, OnchainContractRole.Anchorer);
+    this.addRoleInternal(this.adminAddress, OnchainContractRole.Host);
+    this.addRoleInternal(this.adminAddress, OnchainContractRole.Security);
   }
 
   private generateTxHash(): string {
@@ -133,5 +139,114 @@ export class MockStellarClient implements IStellarClient {
 
     this.corrections.set(normCorr, true);
     return this.generateTxHash();
+  }
+
+  public async initializeVisitors(_adminSecret: string, _coreContractId: string): Promise<string> {
+    return this.generateTxHash();
+  }
+
+  public async issuePass(
+    passIdHex: string,
+    passHashHex: string,
+    siteIdHex: string,
+    validFrom: number,
+    validUntil: number,
+    _hostSecret?: string
+  ): Promise<string> {
+    const normPass = normalizeBytes32Hex(passIdHex);
+    const normSite = normalizeBytes32Hex(siteIdHex);
+    const normHash = normalizeBytes32Hex(passHashHex);
+
+    if (validUntil <= validFrom) {
+      throw new Error(`Invalid validity period: validUntil (${validUntil}) <= validFrom (${validFrom})`);
+    }
+
+    if (!this.registeredSites.has(normSite)) {
+      throw new Error(`Site not registered on-chain: ${normSite}`);
+    }
+
+    if (this.passes.has(normPass)) {
+      throw new Error(`Pass already exists on-chain: ${normPass}`);
+    }
+
+    const passData: OnchainPassData = {
+      passId: normPass,
+      passHash: normHash,
+      host: this.adminAddress,
+      siteId: normSite,
+      validFrom,
+      validUntil,
+      status: 'Active',
+      entryTime: 0,
+      exitTime: 0,
+    };
+
+    this.passes.set(normPass, passData);
+    return this.generateTxHash();
+  }
+
+  public async recordEntry(passIdHex: string, _guardSecret?: string): Promise<string> {
+    const normPass = normalizeBytes32Hex(passIdHex);
+    const pass = this.passes.get(normPass);
+    if (!pass) {
+      throw new Error(`Pass not found on-chain: ${normPass}`);
+    }
+
+    if (pass.status === 'Revoked') {
+      throw new Error(`Pass has been revoked: ${normPass}`);
+    }
+    if (pass.status === 'Entered' || pass.status === 'Exited') {
+      throw new Error(`Pass already used: ${normPass}`);
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (now < pass.validFrom) {
+      throw new Error(`Pass is not yet valid: validFrom ${pass.validFrom} > current ${now}`);
+    }
+    if (now > pass.validUntil) {
+      throw new Error(`Pass has expired: validUntil ${pass.validUntil} < current ${now}`);
+    }
+
+    pass.status = 'Entered';
+    pass.entryTime = now;
+    return this.generateTxHash();
+  }
+
+  public async recordExit(passIdHex: string, _guardSecret?: string): Promise<string> {
+    const normPass = normalizeBytes32Hex(passIdHex);
+    const pass = this.passes.get(normPass);
+    if (!pass) {
+      throw new Error(`Pass not found on-chain: ${normPass}`);
+    }
+
+    if (pass.status !== 'Entered') {
+      throw new Error(`Invalid pass state for exit: status is ${pass.status}`);
+    }
+
+    pass.status = 'Exited';
+    pass.exitTime = Math.floor(Date.now() / 1000);
+    return this.generateTxHash();
+  }
+
+  public async revokePass(passIdHex: string, _callerSecret?: string): Promise<string> {
+    const normPass = normalizeBytes32Hex(passIdHex);
+    const pass = this.passes.get(normPass);
+    if (!pass) {
+      throw new Error(`Pass not found on-chain: ${normPass}`);
+    }
+
+    if (pass.status === 'Revoked') {
+      throw new Error(`Pass already revoked: ${normPass}`);
+    }
+
+    pass.status = 'Revoked';
+    return this.generateTxHash();
+  }
+
+  public async verifyPass(passIdHex: string): Promise<OnchainPassData | null> {
+    const normPass = normalizeBytes32Hex(passIdHex);
+    const pass = this.passes.get(normPass);
+    if (!pass) return null;
+    return { ...pass };
   }
 }

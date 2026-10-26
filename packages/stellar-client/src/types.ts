@@ -6,6 +6,7 @@ export interface StellarConfig {
   horizonUrl?: string;
   coreContractId?: string;
   attendanceContractId?: string;
+  visitorsContractId?: string;
   sponsorSecret?: string;
   anchorerSecret?: string;
   adminSecret?: string;
@@ -24,6 +25,18 @@ export interface OnchainAnchorData {
   merkleRoot: string;
   submittedBy: string;
   ledgerTime: number;
+}
+
+export interface OnchainPassData {
+  passId: string;
+  passHash: string;
+  host: string;
+  siteId: string;
+  validFrom: number;
+  validUntil: number;
+  status: 'Active' | 'Entered' | 'Exited' | 'Revoked';
+  entryTime: number;
+  exitTime: number;
 }
 
 export interface IStellarClient {
@@ -48,4 +61,18 @@ export interface IStellarClient {
     approverAddress: string,
     hrSecret?: string
   ): Promise<string>;
+
+  initializeVisitors(adminSecret: string, coreContractId: string): Promise<string>;
+  issuePass(
+    passIdHex: string,
+    passHashHex: string,
+    siteIdHex: string,
+    validFrom: number,
+    validUntil: number,
+    hostSecret?: string
+  ): Promise<string>;
+  recordEntry(passIdHex: string, guardSecret?: string): Promise<string>;
+  recordExit(passIdHex: string, guardSecret?: string): Promise<string>;
+  revokePass(passIdHex: string, callerSecret?: string): Promise<string>;
+  verifyPass(passIdHex: string): Promise<OnchainPassData | null>;
 }

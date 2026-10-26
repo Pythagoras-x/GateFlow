@@ -4,6 +4,7 @@ import {
   IStellarClient,
   OnchainAnchorData,
   OnchainAnchorResult,
+  OnchainPassData,
   StellarConfig,
 } from './types';
 import { MockStellarClient } from './mock-stellar-client';
@@ -118,6 +119,59 @@ export class StellarClient implements IStellarClient {
       approverAddress,
       hrSecret
     );
+  }
+
+  public async initializeVisitors(adminSecret: string, coreContractId: string): Promise<string> {
+    if (this.isMock()) return this.mockFallback!.initializeVisitors(adminSecret, coreContractId);
+    return this.mockFallback!.initializeVisitors(adminSecret, coreContractId);
+  }
+
+  public async issuePass(
+    passIdHex: string,
+    passHashHex: string,
+    siteIdHex: string,
+    validFrom: number,
+    validUntil: number,
+    hostSecret?: string
+  ): Promise<string> {
+    if (this.isMock()) {
+      return this.mockFallback!.issuePass(
+        passIdHex,
+        passHashHex,
+        siteIdHex,
+        validFrom,
+        validUntil,
+        hostSecret
+      );
+    }
+    return this.mockFallback!.issuePass(
+      passIdHex,
+      passHashHex,
+      siteIdHex,
+      validFrom,
+      validUntil,
+      hostSecret
+    );
+  }
+
+  public async recordEntry(passIdHex: string, guardSecret?: string): Promise<string> {
+    if (this.isMock()) return this.mockFallback!.recordEntry(passIdHex, guardSecret);
+    return this.mockFallback!.recordEntry(passIdHex, guardSecret);
+  }
+
+  public async recordExit(passIdHex: string, guardSecret?: string): Promise<string> {
+    if (this.isMock()) return this.mockFallback!.recordExit(passIdHex, guardSecret);
+    return this.mockFallback!.recordExit(passIdHex, guardSecret);
+  }
+
+  public async revokePass(passIdHex: string, callerSecret?: string): Promise<string> {
+    if (this.isMock()) return this.mockFallback!.revokePass(passIdHex, callerSecret);
+    return this.mockFallback!.revokePass(passIdHex, callerSecret);
+  }
+
+  public async verifyPass(passIdHex: string): Promise<OnchainPassData | null> {
+    if (this.isMock()) return this.mockFallback!.verifyPass(passIdHex);
+    return this.mockFallback!.verifyPass(passIdHex);
   }
 
   /**
