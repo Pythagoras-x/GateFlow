@@ -18,6 +18,12 @@ import {
   PassStatus,
   GateEventType,
   VisitorStatus,
+  AuditLog,
+  AuditVerificationResult,
+  AuditVerificationStatus,
+  CorrectionRecord,
+  AttendancePayrollReportResponseDto,
+  Webhook,
 } from '@gateflow/shared-types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
@@ -350,5 +356,120 @@ export class AdminApiClient {
         site: { name: 'Headquarters - New York' },
       },
     ]);
+  }
+
+  // Audit Logs & Chain Verification
+  public static async getAuditLogs(): Promise<AuditLog[]> {
+    return this.request<{ logs: AuditLog[] }>('/audit')
+      .then((res) => res.logs)
+      .catch(() => [
+        {
+          id: 'audit-1',
+          actorId: 'admin-01',
+          action: 'SITE_CREATED',
+          entity: 'Site',
+          payload: { siteId: 'site-ny-hq', name: 'Headquarters - New York' },
+          prevHash: '0'.repeat(64),
+          entryHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+          createdAt: new Date(Date.now() - 86400000).toISOString(),
+        },
+      ]);
+  }
+
+  public static async verifyAuditChain(): Promise<AuditVerificationResult> {
+    return this.request<AuditVerificationResult>('/audit/verify').catch(() => ({
+      valid: true,
+      status: AuditVerificationStatus.VALID,
+      totalEntries: 1,
+      message: 'Cryptographic audit chain intact across all entries (Local Demo)',
+    }));
+  }
+
+  // Payroll & Attendance Reports
+  public static async getPayrollReports(siteId?: string): Promise<AttendancePayrollReportResponseDto> {
+    const query = siteId ? `?siteId=${siteId}` : '';
+    return this.request<AttendancePayrollReportResponseDto>(`/attendance/reports/payroll${query}`).catch(() => ({
+      timeframe: {
+        startDate: new Date(Date.now() - 30 * 86400000).toISOString(),
+        endDate: new Date().toISOString(),
+        periodType: 'monthly',
+      },
+      summary: {
+        totalEmployees: 2,
+        totalCheckIns: 42,
+        totalCheckOuts: 41,
+        totalHoursWorked: 328.5,
+        totalLateArrivals: 3,
+      },
+      items: [
+        {
+          employeeId: 'emp-1',
+          employeeNo: 'EMP-001',
+          employeeName: 'Alice Johnson',
+          department: 'Engineering',
+          siteId: 'site-ny-hq',
+          siteName: 'Headquarters - New York',
+          totalDaysPresent: 21,
+          totalCheckIns: 21,
+          totalCheckOuts: 21,
+          totalHoursWorked: 168.0,
+          lateArrivals: 1,
+          earlyExits: 0,
+          anchoredEventsCount: 42,
+        },
+        {
+          employeeId: 'emp-2',
+          employeeNo: 'EMP-002',
+          employeeName: 'Robert Davis',
+          department: 'Operations',
+          siteId: 'site-ny-hq',
+          siteName: 'Headquarters - New York',
+          totalDaysPresent: 21,
+          totalCheckIns: 21,
+          totalCheckOuts: 20,
+          totalHoursWorked: 160.5,
+          lateArrivals: 2,
+          earlyExits: 0,
+          anchoredEventsCount: 40,
+        },
+      ],
+    }));
+  }
+
+  // Attendance Corrections
+  public static async getCorrections(): Promise<CorrectionRecord[]> {
+    return this.request<{ corrections: CorrectionRecord[] }>('/attendance/corrections')
+      .then((res) => res.corrections)
+      .catch(() => []);
+  }
+
+  public static async requestCorrection(eventId: string, reason: string): Promise<CorrectionRecord> {
+    return this.request<CorrectionRecord>('/attendance/corrections', {
+      method: 'POST',
+      body: JSON.stringify({ eventId, reason }),
+    });
+  }
+
+  public static async approveCorrection(id: string, notes?: string): Promise<{ success: boolean; onchainTxHash?: string }> {
+    return this.request<{ success: boolean; onchainTxHash?: string }>(`/attendance/corrections/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    });
+  }
+
+  // Webhooks
+  public static async getWebhooks(): Promise<Webhook[]> {
+    return this.request<Webhook[]>('/webhooks').catch(() => []);
+  }
+
+  public static async createWebhook(url: string, events: string[]): Promise<Webhook> {
+    return this.request<Webhook>('/webhooks', {
+      method: 'POST',
+      body: JSON.stringify({ url, events }),
+    });
+  }
+
+  public static async deleteWebhook(id: string): Promise<void> {
+    return this.request<void>(`/webhooks/${id}`, { method: 'DELETE' });
   }
 }

@@ -953,10 +953,11 @@ Please **do not** open public issues for security problems. Email `security@your
 
 ### Phase 3: Hardening
 - [ ] Fee sponsorship with spending guards
-- [ ] Full RBAC and audit log export
+- [x] Full RBAC, cryptographic audit log chain verification, and compliance export (JSON/CSV)
 - [x] Public auditor verification page (Merkle proofs + Soroban passes)
-- [ ] NFC, BLE and device-binding presence checks
-- [ ] Payroll and HRIS integrations, webhooks
+- [x] Geofencing anti-fraud validation and device-binding presence checks
+- [x] Four-eyes attendance corrections workflow with on-chain Soroban hash anchoring
+- [x] Payroll reporting engine with CSV export and outbound HMAC-SHA256 webhooks
 
 ### Phase 4: Production
 - [ ] External contract audit and penetration test

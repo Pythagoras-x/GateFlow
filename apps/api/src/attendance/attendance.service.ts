@@ -31,6 +31,7 @@ import {
   AttendanceReportFilterDto,
   AttendancePayrollReportResponseDto,
   PayrollReportItem,
+  WebhookEvent,
 } from '@gateflow/shared-types';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { calculateHaversineDistanceMeters } from '../common/geofence';

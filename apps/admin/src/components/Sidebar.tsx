@@ -12,6 +12,8 @@ import {
   FileCheck2,
   UserCheck,
   QrCode,
+  BarChart3,
+  History,
 } from 'lucide-react';
 
 const navigation = [
@@ -19,9 +21,11 @@ const navigation = [
   { name: 'Sites', href: '/sites', icon: Building2 },
   { name: 'Employees', href: '/employees', icon: Users },
   { name: 'Attendance', href: '/attendance', icon: Clock },
+  { name: 'Reports & Payroll', href: '/reports', icon: BarChart3 },
   { name: 'Visitors & Passes', href: '/visitors', icon: UserCheck },
   { name: 'Gate Terminal', href: '/gate', icon: QrCode },
   { name: 'Anchors (On-chain)', href: '/anchors', icon: ShieldCheck },
+  { name: 'Audit Trail', href: '/audit', icon: History },
 ];
 
 export function Sidebar() {
