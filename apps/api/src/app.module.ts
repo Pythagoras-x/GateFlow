@@ -7,6 +7,7 @@ import { ShiftsModule } from './shifts/shifts.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AnchoringModule } from './anchoring/anchoring.module';
 import { VisitorsModule } from './visitors/visitors.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import { PrismaService } from './common/prisma.service';
 import { EncryptionService } from './common/encryption.service';
 
@@ -20,6 +21,7 @@ import { EncryptionService } from './common/encryption.service';
     AttendanceModule,
     AnchoringModule,
     VisitorsModule,
+    WebhooksModule,
   ],
   providers: [PrismaService, EncryptionService],
 })

@@ -29,6 +29,7 @@ import {
   CorrectionRecord,
   CorrectionStatus,
 } from '@gateflow/shared-types';
+import { WebhooksService } from '../webhooks/webhooks.service';
 import { calculateHaversineDistanceMeters } from '../common/geofence';
 import { config } from '../common/config';
 
@@ -48,7 +49,8 @@ export class AttendanceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly webhooks?: WebhooksService
   ) {
     this.stellarClient = new StellarClient({
       rpcUrl: config.stellar.rpcUrl,
@@ -243,6 +245,15 @@ export class AttendanceService {
       leafHash,
     });
 
+    this.webhooks?.dispatch(WebhookEvent.ATTENDANCE_CHECKED_IN, {
+      eventId: event.id,
+      employeeNo: employee.employeeNo,
+      siteId: site.id,
+      method: event.method,
+      occurredAt: event.occurredAt.toISOString(),
+      leafHash,
+    });
+
     return {
       success: true,
       message: `Checked in successfully at ${site.name}`,
@@ -328,6 +339,15 @@ export class AttendanceService {
       eventId: event.id,
       employeeNo: employee.employeeNo,
       siteId: site.id,
+      leafHash,
+    });
+
+    this.webhooks?.dispatch(WebhookEvent.ATTENDANCE_CHECKED_OUT, {
+      eventId: event.id,
+      employeeNo: employee.employeeNo,
+      siteId: site.id,
+      method: event.method,
+      occurredAt: event.occurredAt.toISOString(),
       leafHash,
     });
 
@@ -603,6 +623,13 @@ export class AttendanceService {
       requestedBy: updated.requestedBy,
       approvedBy: approverId,
       correctionHashHex,
+      onchainTxHash,
+    });
+
+    this.webhooks?.dispatch(WebhookEvent.CORRECTION_APPROVED, {
+      correctionId: updated.id,
+      eventId: updated.eventId,
+      approvedBy: approverId,
       onchainTxHash,
     });
 
