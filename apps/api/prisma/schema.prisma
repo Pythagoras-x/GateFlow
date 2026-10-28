@@ -157,13 +157,45 @@ model Correction {
   eventId       String
   reason        String
   requestedBy   String
-  approvedBy    String
+  approvedBy    String?
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
   onchainTxHash String?
   createdAt     DateTime @default(now())
 
   event         AttendanceEvent @relation(fields: [eventId], references: [id])
 
   @@map("corrections")
+}
+
+model Webhook {
+  id        String   @id @default(uuid())
+  tenantId  String?
+  url       String
+  secret    String
+  events    String   // comma-separated WebhookEvent strings
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deliveries WebhookDeliveryLog[]
+
+  @@map("webhooks")
+}
+
+model WebhookDeliveryLog {
+  id             String   @id @default(uuid())
+  webhookId      String
+  event          String
+  payload        String
+  responseStatus Int?
+  responseBody   String?
+  success        Boolean  @default(false)
+  attempt        Int      @default(1)
+  deliveredAt    DateTime @default(now())
+
+  webhook        Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_delivery_logs")
 }
 
 model AuditLog {

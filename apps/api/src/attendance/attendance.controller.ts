@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Param,
   Body,
   Query,
   UseGuards,
@@ -21,6 +22,11 @@ import {
   AttendanceResponseDto,
   AttendanceQueryDto,
   AttendanceReportSummaryDto,
+  RequestCorrectionDto,
+  ApproveCorrectionDto,
+  CorrectionResponseDto,
+  CorrectionQueryDto,
+  CorrectionRecord,
 } from '@gateflow/shared-types';
 
 @ApiTags('Attendance')
@@ -64,5 +70,39 @@ export class AttendanceController {
   @ApiOperation({ summary: 'Daily/weekly attendance report summary' })
   async getReports(@Query('siteId') siteId: string): Promise<AttendanceReportSummaryDto> {
     return this.attendanceService.getReports(siteId);
+  }
+
+  @Post('corrections')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.HR, UserRole.Admin)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Request an attendance correction' })
+  async requestCorrection(
+    @Body() body: RequestCorrectionDto,
+    @Request() req: any
+  ): Promise<CorrectionRecord> {
+    return this.attendanceService.requestCorrection(body, req.user.id);
+  }
+
+  @Post('corrections/:id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.Admin, UserRole.HR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Approve a correction and anchor on-chain (four-eyes principle)' })
+  async approveCorrection(
+    @Param('id') id: string,
+    @Body() body: ApproveCorrectionDto,
+    @Request() req: any
+  ): Promise<CorrectionResponseDto> {
+    return this.attendanceService.approveCorrection(id, req.user.id, body?.notes);
+  }
+
+  @Get('corrections')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.Admin, UserRole.HR, UserRole.Auditor)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List attendance corrections' })
+  async getCorrections(@Query() query: CorrectionQueryDto) {
+    return this.attendanceService.getCorrections(query);
   }
 }

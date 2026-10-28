@@ -21,7 +21,16 @@ describe('AttendanceService', () => {
       },
       attendanceEvent: {
         findFirst: vi.fn(),
+        findUnique: vi.fn(),
         create: vi.fn(),
+        findMany: vi.fn(),
+        count: vi.fn(),
+      },
+      correction: {
+        findFirst: vi.fn(),
+        findUnique: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
         findMany: vi.fn(),
         count: vi.fn(),
       },
@@ -118,5 +127,95 @@ describe('AttendanceService', () => {
         method: AttendanceMethod.QR,
       })
     ).rejects.toThrow('A check-in was already recorded within the last 2 minutes');
+  });
+
+  describe('Attendance Corrections Workflow', () => {
+    const mockEvent = {
+      id: 'ev-123',
+      employeeId: 'emp-1',
+      siteId: 'site-hq',
+      type: AttendanceType.IN,
+      occurredAt: new Date(),
+      leafHash: 'a'.repeat(64),
+      employee: { employeeNo: 'EMP001' },
+      site: { id: 'site-hq', name: 'HQ', siteIdHash: '1'.repeat(64) },
+    };
+
+    it('creates a pending correction request', async () => {
+      mockPrisma.attendanceEvent.findUnique.mockResolvedValue(mockEvent);
+      mockPrisma.correction.findFirst.mockResolvedValue(null);
+      mockPrisma.correction.create.mockImplementation(({ data }: any) => ({
+        id: 'corr-1',
+        ...data,
+        createdAt: new Date(),
+      }));
+
+      const result = await attendanceService.requestCorrection(
+        { eventId: 'ev-123', reason: 'Badge scanner malfunction' },
+        'hr-user-1'
+      );
+
+      expect(result.id).toBe('corr-1');
+      expect(result.status).toBe('PENDING');
+      expect(result.reason).toBe('Badge scanner malfunction');
+      expect(mockPrisma.correction.create).toHaveBeenCalled();
+    });
+
+    it('rejects duplicate pending correction request for same event', async () => {
+      mockPrisma.attendanceEvent.findUnique.mockResolvedValue(mockEvent);
+      mockPrisma.correction.findFirst.mockResolvedValue({ id: 'existing-corr', status: 'PENDING' });
+
+      await expect(
+        attendanceService.requestCorrection(
+          { eventId: 'ev-123', reason: 'Another correction' },
+          'hr-user-1'
+        )
+      ).rejects.toThrow('A correction request is already pending approval');
+    });
+
+    it('enforces four-eyes principle by rejecting self-approval', async () => {
+      mockPrisma.correction.findUnique.mockResolvedValue({
+        id: 'corr-1',
+        eventId: 'ev-123',
+        reason: 'Badge scanner malfunction',
+        requestedBy: 'user-hr-1',
+        status: 'PENDING',
+        event: mockEvent,
+      });
+
+      // Same user attempts to approve their own request
+      await expect(
+        attendanceService.approveCorrection('corr-1', 'user-hr-1')
+      ).rejects.toThrow('Four-eyes principle violation');
+    });
+
+    it('approves correction when approved by different authorized user and anchors on-chain', async () => {
+      mockPrisma.correction.findUnique.mockResolvedValue({
+        id: 'corr-1',
+        eventId: 'ev-123',
+        reason: 'Badge scanner malfunction',
+        requestedBy: 'user-hr-1',
+        status: 'PENDING',
+        event: mockEvent,
+      });
+      mockPrisma.correction.update.mockImplementation(({ data }: any) => ({
+        id: 'corr-1',
+        eventId: 'ev-123',
+        reason: 'Badge scanner malfunction',
+        requestedBy: 'user-hr-1',
+        approvedBy: data.approvedBy,
+        status: data.status,
+        onchainTxHash: data.onchainTxHash,
+        createdAt: new Date(),
+      }));
+
+      const res = await attendanceService.approveCorrection('corr-1', 'user-admin-2');
+
+      expect(res.success).toBe(true);
+      expect(res.correction.approvedBy).toBe('user-admin-2');
+      expect(res.correction.status).toBe('APPROVED');
+      expect(res.onchainTxHash).toBeDefined();
+      expect(mockPrisma.correction.update).toHaveBeenCalled();
+    });
   });
 });

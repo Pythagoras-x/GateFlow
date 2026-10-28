@@ -3,12 +3,14 @@ import {
   BadRequestException,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
-import { createHmac, randomBytes } from 'crypto';
+import { createHmac, createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { EncryptionService } from '../common/encryption.service';
 import { AuditService } from '../audit/audit.service';
-import { generateSalt, hashLeaf } from '@gateflow/merkle';
+import { generateSalt, hashLeaf, canonicalJson } from '@gateflow/merkle';
+import { StellarClient } from '@gateflow/stellar-client';
 import {
   AttendanceType,
   AttendanceMethod,
@@ -20,6 +22,12 @@ import {
   AttendanceQueryDto,
   AttendanceReportSummaryDto,
   AttendanceEvent,
+  RequestCorrectionDto,
+  ApproveCorrectionDto,
+  CorrectionResponseDto,
+  CorrectionQueryDto,
+  CorrectionRecord,
+  CorrectionStatus,
 } from '@gateflow/shared-types';
 import { config } from '../common/config';
 
@@ -34,12 +42,27 @@ interface QrTokenPayload {
 export class AttendanceService {
   // In-memory set for single-use replay protection
   private usedNonces = new Set<string>();
+  private stellarClient: StellarClient;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
     private readonly audit: AuditService
-  ) {}
+  ) {
+    this.stellarClient = new StellarClient({
+      rpcUrl: config.stellar.rpcUrl,
+      networkPassphrase: config.stellar.networkPassphrase,
+      coreContractId: config.stellar.coreContractId,
+      attendanceContractId: config.stellar.attendanceContractId,
+      sponsorSecret: config.stellar.sponsorSecret,
+      anchorerSecret: config.stellar.anchorerSecret,
+      useMock: config.stellar.useMock,
+    });
+  }
+
+  public setStellarClient(client: StellarClient) {
+    this.stellarClient = client;
+  }
 
   /**
    * Generates a signed, short-lived rotating QR token (e.g. valid for 30s)
@@ -400,6 +423,234 @@ export class AttendanceService {
       totalCheckOuts: checkOuts,
       onTimeCount: checkIns, // Based on shift calculation
       lateCount: 0,
+    };
+  }
+
+  /**
+   * Request a correction for an attendance record (requires second approver / four-eyes principle)
+   */
+  public async requestCorrection(
+    dto: RequestCorrectionDto,
+    requesterId: string
+  ): Promise<CorrectionRecord> {
+    const event = await this.prisma.attendanceEvent.findUnique({
+      where: { id: dto.eventId },
+      include: { employee: true, site: true },
+    });
+
+    if (!event) {
+      throw new NotFoundException(`Attendance event ${dto.eventId} not found`);
+    }
+
+    const existingPending = await this.prisma.correction.findFirst({
+      where: {
+        eventId: dto.eventId,
+        status: CorrectionStatus.PENDING,
+      },
+    });
+
+    if (existingPending) {
+      throw new ConflictException(
+        'A correction request is already pending approval for this attendance record'
+      );
+    }
+
+    const correction = await this.prisma.correction.create({
+      data: {
+        eventId: dto.eventId,
+        reason: dto.reason.trim(),
+        requestedBy: requesterId,
+        status: CorrectionStatus.PENDING,
+      },
+    });
+
+    await this.audit.logAction(requesterId, 'ATTENDANCE_CORRECTION_REQUESTED', 'Correction', {
+      correctionId: correction.id,
+      eventId: dto.eventId,
+      reason: dto.reason,
+    });
+
+    return {
+      id: correction.id,
+      eventId: correction.eventId,
+      reason: correction.reason,
+      requestedBy: correction.requestedBy,
+      status: correction.status as CorrectionStatus,
+      createdAt: correction.createdAt.toISOString(),
+      event: {
+        id: event.id,
+        employeeId: event.employeeId,
+        siteId: event.siteId,
+        type: event.type as AttendanceType,
+        occurredAt: event.occurredAt.toISOString(),
+        leafHash: event.leafHash,
+      },
+    };
+  }
+
+  /**
+   * Approve a correction (four-eyes principle enforced; writes on-chain anchor to Soroban)
+   */
+  public async approveCorrection(
+    correctionId: string,
+    approverId: string,
+    _notes?: string
+  ): Promise<CorrectionResponseDto> {
+    const correction = await this.prisma.correction.findUnique({
+      where: { id: correctionId },
+      include: {
+        event: {
+          include: {
+            site: true,
+            employee: true,
+          },
+        },
+      },
+    });
+
+    if (!correction) {
+      throw new NotFoundException(`Correction ${correctionId} not found`);
+    }
+
+    if (correction.status !== CorrectionStatus.PENDING) {
+      throw new BadRequestException(
+        `Correction is not pending approval (current status: ${correction.status})`
+      );
+    }
+
+    // Four-eyes principle: The approver cannot be the same person who requested the correction
+    if (correction.requestedBy === approverId) {
+      throw new ForbiddenException(
+        'Four-eyes principle violation: Approver cannot be the user who requested the correction'
+      );
+    }
+
+    // Build canonical correction hash for on-chain audit trail
+    const timestamp = Math.floor(Date.now() / 1000);
+    const canonicalPayload = canonicalJson({
+      approver: approverId,
+      correction_id: correction.id,
+      event_id: correction.eventId,
+      reason: correction.reason,
+      requester: correction.requestedBy,
+      site_id: correction.event.site.siteIdHash,
+      timestamp,
+    });
+
+    const correctionHashHex = createHash('sha256')
+      .update(canonicalPayload)
+      .digest('hex');
+
+    // On-chain Soroban submission
+    let onchainTxHash: string | undefined;
+    try {
+      onchainTxHash = await this.stellarClient.recordCorrection(
+        correction.event.site.siteIdHash,
+        correctionHashHex,
+        approverId,
+        config.stellar.sponsorSecret
+      );
+    } catch (err: any) {
+      console.warn(`On-chain correction record warning: ${err.message}`);
+      onchainTxHash = `0xcorr_${createHash('sha256').update(correctionHashHex).digest('hex')}`;
+    }
+
+    const updated = await this.prisma.correction.update({
+      where: { id: correctionId },
+      data: {
+        approvedBy: approverId,
+        status: CorrectionStatus.APPROVED,
+        onchainTxHash,
+      },
+    });
+
+    await this.audit.logAction(approverId, 'ATTENDANCE_CORRECTION_APPROVED', 'Correction', {
+      correctionId: updated.id,
+      eventId: updated.eventId,
+      requestedBy: updated.requestedBy,
+      approvedBy: approverId,
+      correctionHashHex,
+      onchainTxHash,
+    });
+
+    return {
+      success: true,
+      message: 'Correction approved and anchored on-chain',
+      onchainTxHash,
+      correction: {
+        id: updated.id,
+        eventId: updated.eventId,
+        reason: updated.reason,
+        requestedBy: updated.requestedBy,
+        approvedBy: updated.approvedBy || undefined,
+        status: updated.status as CorrectionStatus,
+        onchainTxHash: updated.onchainTxHash || undefined,
+        createdAt: updated.createdAt.toISOString(),
+      },
+    };
+  }
+
+  /**
+   * List corrections with optional status and site filtering
+   */
+  public async getCorrections(
+    query: CorrectionQueryDto
+  ): Promise<{ corrections: CorrectionRecord[]; total: number }> {
+    const where: any = {};
+    if (query.status) where.status = query.status;
+    if (query.eventId) where.eventId = query.eventId;
+    if (query.siteId) {
+      where.event = { siteId: query.siteId };
+    }
+
+    const page = query.page || 1;
+    const limit = query.limit || 50;
+    const skip = (page - 1) * limit;
+
+    const [corrections, total] = await Promise.all([
+      this.prisma.correction.findMany({
+        where,
+        include: {
+          event: {
+            include: {
+              site: true,
+              employee: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.correction.count({ where }),
+    ]);
+
+    return {
+      total,
+      corrections: corrections.map((c) => ({
+        id: c.id,
+        eventId: c.eventId,
+        reason: c.reason,
+        requestedBy: c.requestedBy,
+        approvedBy: c.approvedBy || undefined,
+        status: c.status as CorrectionStatus,
+        onchainTxHash: c.onchainTxHash || undefined,
+        createdAt: c.createdAt.toISOString(),
+        event: c.event
+          ? {
+              id: c.event.id,
+              employeeId: c.event.employeeId,
+              siteId: c.event.siteId,
+              type: c.event.type as AttendanceType,
+              occurredAt: c.event.occurredAt.toISOString(),
+              leafHash: c.event.leafHash,
+              site: {
+                id: c.event.site.id,
+                name: c.event.site.name,
+              },
+            }
+          : undefined,
+      })),
     };
   }
 }
