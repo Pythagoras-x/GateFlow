@@ -28,6 +28,9 @@ import {
   CorrectionQueryDto,
   CorrectionRecord,
   CorrectionStatus,
+  AttendanceReportFilterDto,
+  AttendancePayrollReportResponseDto,
+  PayrollReportItem,
 } from '@gateflow/shared-types';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { calculateHaversineDistanceMeters } from '../common/geofence';
@@ -476,6 +479,214 @@ export class AttendanceService {
       totalCheckOuts: checkOuts,
       onTimeCount: checkIns, // Based on shift calculation
       lateCount: 0,
+    };
+  }
+
+  /**
+   * Generates payroll-ready employee attendance reports with shift compliance
+   */
+  public async getPayrollReports(
+    filter: AttendanceReportFilterDto
+  ): Promise<AttendancePayrollReportResponseDto> {
+    const startDate = filter.startDate
+      ? new Date(filter.startDate)
+      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const endDate = filter.endDate ? new Date(filter.endDate) : new Date();
+
+    const where: any = {
+      occurredAt: {
+        gte: startDate,
+        lte: endDate,
+      },
+    };
+
+    if (filter.siteId) {
+      where.siteId = filter.siteId;
+    }
+
+    if (filter.department) {
+      where.employee = { department: filter.department };
+    }
+
+    const events = await this.prisma.attendanceEvent.findMany({
+      where,
+      include: {
+        employee: {
+          include: { shift: true },
+        },
+        site: true,
+      },
+      orderBy: { occurredAt: 'asc' },
+    });
+
+    // Group events by employee
+    const employeeMap = new Map<
+      string,
+      {
+        employee: any;
+        site: any;
+        events: any[];
+      }
+    >();
+
+    for (const ev of events) {
+      if (!employeeMap.has(ev.employeeId)) {
+        employeeMap.set(ev.employeeId, {
+          employee: ev.employee,
+          site: ev.site,
+          events: [],
+        });
+      }
+      employeeMap.get(ev.employeeId)!.events.push(ev);
+    }
+
+    const items: PayrollReportItem[] = [];
+    let totalCheckIns = 0;
+    let totalCheckOuts = 0;
+    let totalHoursWorked = 0;
+    let totalLateArrivals = 0;
+
+    for (const [employeeId, data] of employeeMap.entries()) {
+      const { employee, site, events: empEvents } = data;
+      const employeeName = this.encryption.decrypt(employee.nameEnc);
+
+      const daysSet = new Set<string>();
+      let checkIns = 0;
+      let checkOuts = 0;
+      let lateCount = 0;
+      let anchoredCount = 0;
+      let hoursWorked = 0;
+
+      // Group by day for paired duration calculation
+      const dayMap = new Map<string, { ins: Date[]; outs: Date[] }>();
+
+      for (const ev of empEvents) {
+        const dateKey = ev.occurredAt.toISOString().slice(0, 10);
+        daysSet.add(dateKey);
+
+        if (!dayMap.has(dateKey)) {
+          dayMap.set(dateKey, { ins: [], outs: [] });
+        }
+
+        if (ev.anchorId) anchoredCount++;
+
+        if (ev.type === AttendanceType.IN) {
+          checkIns++;
+          dayMap.get(dateKey)!.ins.push(ev.occurredAt);
+
+          // Check if late based on shift
+          if (employee.shift && employee.shift.startTime) {
+            const [shiftH, shiftM] = employee.shift.startTime.split(':').map(Number);
+            const graceMinutes = employee.shift.graceMinutes || 15;
+            const eventH = ev.occurredAt.getHours();
+            const eventM = ev.occurredAt.getMinutes();
+            const lateThresholdMinutes = shiftH * 60 + shiftM + graceMinutes;
+            const eventMinutes = eventH * 60 + eventM;
+            if (eventMinutes > lateThresholdMinutes) {
+              lateCount++;
+            }
+          }
+        } else if (ev.type === AttendanceType.OUT) {
+          checkOuts++;
+          dayMap.get(dateKey)!.outs.push(ev.occurredAt);
+        }
+      }
+
+      // Calculate hours worked per day
+      for (const [, times] of dayMap.entries()) {
+        const sortedIns = times.ins.sort((a, b) => a.getTime() - b.getTime());
+        const sortedOuts = times.outs.sort((a, b) => a.getTime() - b.getTime());
+
+        for (let i = 0; i < Math.min(sortedIns.length, sortedOuts.length); i++) {
+          const diffMs = sortedOuts[i].getTime() - sortedIns[i].getTime();
+          if (diffMs > 0) {
+            hoursWorked += diffMs / (1000 * 60 * 60);
+          }
+        }
+      }
+
+      const roundedHours = Math.round(hoursWorked * 10) / 10;
+
+      totalCheckIns += checkIns;
+      totalCheckOuts += checkOuts;
+      totalHoursWorked += roundedHours;
+      totalLateArrivals += lateCount;
+
+      items.push({
+        employeeId,
+        employeeNo: employee.employeeNo,
+        employeeName,
+        department: employee.department,
+        siteId: site.id,
+        siteName: site.name,
+        totalDaysPresent: daysSet.size,
+        totalCheckIns: checkIns,
+        totalCheckOuts: checkOuts,
+        totalHoursWorked: roundedHours,
+        lateArrivals: lateCount,
+        earlyExits: 0,
+        anchoredEventsCount: anchoredCount,
+      });
+    }
+
+    return {
+      timeframe: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        periodType: filter.periodType || 'custom',
+      },
+      summary: {
+        totalEmployees: items.length,
+        totalCheckIns,
+        totalCheckOuts,
+        totalHoursWorked: Math.round(totalHoursWorked * 10) / 10,
+        totalLateArrivals,
+      },
+      items,
+    };
+  }
+
+  /**
+   * Export payroll reports formatted as CSV
+   */
+  public async exportPayrollReportsCsv(
+    filter: AttendanceReportFilterDto
+  ): Promise<{ content: string; filename: string }> {
+    const report = await this.getPayrollReports(filter);
+
+    const headers = [
+      'employeeNo',
+      'employeeName',
+      'department',
+      'siteName',
+      'daysPresent',
+      'checkIns',
+      'checkOuts',
+      'hoursWorked',
+      'lateArrivals',
+      'anchoredEvents',
+    ];
+
+    const rows = report.items.map((item) => [
+      `"${item.employeeNo}"`,
+      `"${item.employeeName.replace(/"/g, '""')}"`,
+      `"${item.department.replace(/"/g, '""')}"`,
+      `"${item.siteName.replace(/"/g, '""')}"`,
+      item.totalDaysPresent,
+      item.totalCheckIns,
+      item.totalCheckOuts,
+      item.totalHoursWorked,
+      item.lateArrivals,
+      item.anchoredEventsCount,
+    ]);
+
+    const content = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const startStr = report.timeframe.startDate.slice(0, 10);
+    const endStr = report.timeframe.endDate.slice(0, 10);
+
+    return {
+      content,
+      filename: `payroll-report-${startStr}-to-${endStr}.csv`,
     };
   }
 

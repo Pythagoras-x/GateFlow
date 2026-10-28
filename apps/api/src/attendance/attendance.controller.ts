@@ -7,8 +7,10 @@ import {
   Query,
   UseGuards,
   Request,
+  Res,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Response } from 'express';
 import { AttendanceService } from './attendance.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -27,6 +29,8 @@ import {
   CorrectionResponseDto,
   CorrectionQueryDto,
   CorrectionRecord,
+  AttendanceReportFilterDto,
+  AttendancePayrollReportResponseDto,
 } from '@gateflow/shared-types';
 
 @ApiTags('Attendance')
@@ -70,6 +74,32 @@ export class AttendanceController {
   @ApiOperation({ summary: 'Daily/weekly attendance report summary' })
   async getReports(@Query('siteId') siteId: string): Promise<AttendanceReportSummaryDto> {
     return this.attendanceService.getReports(siteId);
+  }
+
+  @Get('reports/payroll')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.Admin, UserRole.HR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Comprehensive payroll-ready attendance reports' })
+  async getPayrollReports(
+    @Query() query: AttendanceReportFilterDto
+  ): Promise<AttendancePayrollReportResponseDto> {
+    return this.attendanceService.getPayrollReports(query);
+  }
+
+  @Get('reports/export')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.Admin, UserRole.HR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Export payroll attendance report as CSV' })
+  async exportPayrollReports(
+    @Query() query: AttendanceReportFilterDto,
+    @Res() res: Response
+  ) {
+    const result = await this.attendanceService.exportPayrollReportsCsv(query);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    return res.send(result.content);
   }
 
   @Post('corrections')

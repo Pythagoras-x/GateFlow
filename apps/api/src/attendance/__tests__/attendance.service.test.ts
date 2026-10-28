@@ -318,4 +318,79 @@ describe('AttendanceService', () => {
       expect(mockPrisma.correction.update).toHaveBeenCalled();
     });
   });
+
+  describe('Payroll & Attendance Reports Engine', () => {
+    it('aggregates employee attendance events into payroll metrics and detects late arrivals', async () => {
+      const morningIn = new Date('2026-05-01T09:30:00'); // 9:30 AM (late for 09:00 shift with 15min grace)
+      const eveningOut = new Date('2026-05-01T17:30:00'); // 8 hours later
+
+      const mockEmployee = {
+        id: 'emp-1',
+        employeeNo: 'EMP001',
+        nameEnc: encryptionService.encrypt('Alice Smith'),
+        department: 'Engineering',
+        shift: {
+          startTime: '09:00',
+          endTime: '17:00',
+          graceMinutes: 15,
+        },
+      };
+
+      const mockEvents = [
+        {
+          id: 'ev-1',
+          employeeId: 'emp-1',
+          siteId: 'site-1',
+          type: AttendanceType.IN,
+          occurredAt: morningIn,
+          anchorId: 'anchor-1',
+          employee: mockEmployee,
+          site: { id: 'site-1', name: 'HQ' },
+        },
+        {
+          id: 'ev-2',
+          employeeId: 'emp-1',
+          siteId: 'site-1',
+          type: AttendanceType.OUT,
+          occurredAt: eveningOut,
+          anchorId: 'anchor-1',
+          employee: mockEmployee,
+          site: { id: 'site-1', name: 'HQ' },
+        },
+      ];
+
+      mockPrisma.attendanceEvent.findMany.mockResolvedValue(mockEvents);
+
+      const report = await attendanceService.getPayrollReports({
+        startDate: '2026-05-01T00:00:00Z',
+        endDate: '2026-05-01T23:59:59Z',
+      });
+
+      expect(report.summary.totalEmployees).toBe(1);
+      expect(report.summary.totalCheckIns).toBe(1);
+      expect(report.summary.totalCheckOuts).toBe(1);
+      expect(report.summary.totalHoursWorked).toBe(8);
+      expect(report.summary.totalLateArrivals).toBe(1);
+
+      const item = report.items[0];
+      expect(item.employeeNo).toBe('EMP001');
+      expect(item.employeeName).toBe('Alice Smith');
+      expect(item.department).toBe('Engineering');
+      expect(item.totalHoursWorked).toBe(8);
+      expect(item.lateArrivals).toBe(1);
+      expect(item.anchoredEventsCount).toBe(2);
+    });
+
+    it('exports payroll report as formatted CSV', async () => {
+      mockPrisma.attendanceEvent.findMany.mockResolvedValue([]);
+
+      const csvResult = await attendanceService.exportPayrollReportsCsv({
+        startDate: '2026-05-01T00:00:00Z',
+        endDate: '2026-05-01T23:59:59Z',
+      });
+
+      expect(csvResult.filename).toContain('payroll-report-2026-05-01');
+      expect(csvResult.content).toContain('employeeNo,employeeName,department,siteName,daysPresent,checkIns,checkOuts,hoursWorked,lateArrivals,anchoredEvents');
+    });
+  });
 });
