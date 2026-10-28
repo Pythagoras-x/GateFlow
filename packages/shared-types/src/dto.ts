@@ -6,6 +6,9 @@ import {
   PassStatus,
   GateEventType,
   VisitorStatus,
+  WebhookEvent,
+  AuditVerificationStatus,
+  CorrectionStatus,
 } from './enums';
 import {
   Site,
@@ -16,6 +19,12 @@ import {
   Visitor,
   VisitorPass,
   GateLog,
+  CorrectionRecord,
+  AuditLog,
+  AuditVerificationResult,
+  Webhook,
+  WebhookDeliveryLog,
+  PayrollReportItem,
 } from './models';
 
 // Auth
@@ -210,4 +219,104 @@ export interface VisitorPassQueryDto {
   status?: PassStatus;
   page?: number;
   limit?: number;
+}
+
+// Attendance Corrections
+export interface RequestCorrectionDto {
+  eventId: string;
+  reason: string;
+}
+
+export interface ApproveCorrectionDto {
+  notes?: string;
+}
+
+export interface CorrectionResponseDto {
+  success: boolean;
+  message: string;
+  correction: CorrectionRecord;
+  onchainTxHash?: string;
+}
+
+export interface CorrectionQueryDto {
+  siteId?: string;
+  eventId?: string;
+  status?: CorrectionStatus;
+  page?: number;
+  limit?: number;
+}
+
+// Audit Logs
+export interface AuditLogQueryDto {
+  actorId?: string;
+  action?: string;
+  entity?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface AuditExportQueryDto {
+  format?: 'json' | 'csv';
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface AuditLogResponseDto {
+  logs: AuditLog[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// Webhooks
+export interface CreateWebhookDto {
+  url: string;
+  events: WebhookEvent[];
+  secret?: string;
+}
+
+export interface UpdateWebhookDto {
+  url?: string;
+  events?: WebhookEvent[];
+  isActive?: boolean;
+}
+
+export interface WebhookResponseDto {
+  webhook: Webhook;
+}
+
+export interface WebhookDeliveryResponseDto {
+  logs: WebhookDeliveryLog[];
+  total: number;
+}
+
+export interface TestWebhookDto {
+  event?: WebhookEvent;
+}
+
+// Reports & Payroll Export
+export interface AttendanceReportFilterDto {
+  siteId?: string;
+  department?: string;
+  startDate?: string;
+  endDate?: string;
+  periodType?: 'daily' | 'weekly' | 'monthly' | 'custom';
+}
+
+export interface AttendancePayrollReportResponseDto {
+  timeframe: {
+    startDate: string;
+    endDate: string;
+    periodType: string;
+  };
+  summary: {
+    totalEmployees: number;
+    totalCheckIns: number;
+    totalCheckOuts: number;
+    totalHoursWorked: number;
+    totalLateArrivals: number;
+  };
+  items: PayrollReportItem[];
 }

@@ -6,6 +6,9 @@ import {
   PassStatus,
   GateEventType,
   VisitorStatus,
+  WebhookEvent,
+  AuditVerificationStatus,
+  CorrectionStatus,
 } from './enums';
 
 export interface Tenant {
@@ -136,9 +139,13 @@ export interface CorrectionRecord {
   eventId: string;
   reason: string;
   requestedBy: string;
-  approvedBy: string;
+  approvedBy?: string;
+  status?: CorrectionStatus;
   onchainTxHash?: string;
   createdAt: string;
+  event?: Partial<AttendanceEvent>;
+  requestedByUser?: Partial<User>;
+  approvedByUser?: Partial<User>;
 }
 
 export interface AuditLog {
@@ -150,6 +157,56 @@ export interface AuditLog {
   prevHash?: string;
   entryHash: string;
   createdAt: string;
+}
+
+export interface AuditVerificationResult {
+  valid: boolean;
+  status: AuditVerificationStatus;
+  totalEntries: number;
+  brokenAtIndex?: number;
+  brokenEntryId?: string;
+  expectedHash?: string;
+  actualHash?: string;
+  message: string;
+}
+
+export interface Webhook {
+  id: string;
+  tenantId?: string;
+  url: string;
+  secret: string;
+  events: WebhookEvent[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebhookDeliveryLog {
+  id: string;
+  webhookId: string;
+  event: WebhookEvent;
+  payload: string;
+  responseStatus?: number;
+  responseBody?: string;
+  success: boolean;
+  attempt: number;
+  deliveredAt: string;
+}
+
+export interface PayrollReportItem {
+  employeeId: string;
+  employeeNo: string;
+  employeeName: string;
+  department: string;
+  siteId: string;
+  siteName: string;
+  totalDaysPresent: number;
+  totalCheckIns: number;
+  totalCheckOuts: number;
+  totalHoursWorked: number;
+  lateArrivals: number;
+  earlyExits: number;
+  anchoredEventsCount: number;
 }
 
 export interface Visitor {

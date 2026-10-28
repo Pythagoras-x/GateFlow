@@ -55,3 +55,26 @@ export enum VisitorStatus {
   CANCELLED = 'CANCELLED',
   BLACKLISTED = 'BLACKLISTED',
 }
+
+export enum WebhookEvent {
+  ATTENDANCE_CHECKED_IN = 'attendance.checked_in',
+  ATTENDANCE_CHECKED_OUT = 'attendance.checked_out',
+  VISITOR_ARRIVED = 'visitor.arrived',
+  VISITOR_DEPARTED = 'visitor.departed',
+  PASS_ISSUED = 'pass.issued',
+  PASS_REVOKED = 'pass.revoked',
+  ANCHOR_CONFIRMED = 'anchor.confirmed',
+  CORRECTION_APPROVED = 'correction.approved',
+}
+
+export enum AuditVerificationStatus {
+  VALID = 'VALID',
+  CORRUPTED = 'CORRUPTED',
+  EMPTY = 'EMPTY',
+}
+
+export enum CorrectionStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
