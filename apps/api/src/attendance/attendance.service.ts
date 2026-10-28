@@ -29,6 +29,7 @@ import {
   CorrectionRecord,
   CorrectionStatus,
 } from '@gateflow/shared-types';
+import { calculateHaversineDistanceMeters } from '../common/geofence';
 import { config } from '../common/config';
 
 interface QrTokenPayload {
@@ -158,6 +159,38 @@ export class AttendanceService {
 
     if (!employee) throw new NotFoundException(`Employee ${employeeId} not found`);
     if (!site) throw new NotFoundException(`Site ${siteId} not found`);
+
+    // Anti-fraud: Geofence validation
+    if (site.latitude != null && site.longitude != null && dto.latitude != null && dto.longitude != null) {
+      const distance = calculateHaversineDistanceMeters(
+        dto.latitude,
+        dto.longitude,
+        site.latitude,
+        site.longitude
+      );
+
+      const maxRadius = site.radiusMeters || 100.0;
+      if (distance > maxRadius) {
+        throw new BadRequestException(
+          `Geofence verification failed: You are ${Math.round(distance)}m away from ${site.name} (allowed radius: ${maxRadius}m)`
+        );
+      }
+    }
+
+    // Anti-fraud: Device binding validation
+    if (dto.deviceSignature) {
+      const boundDevices = await this.prisma.device.findMany({
+        where: { employeeId: employee.id },
+      });
+      if (boundDevices.length > 0) {
+        const matches = boundDevices.some((d) => d.publicKey === dto.deviceSignature);
+        if (!matches) {
+          throw new ForbiddenException(
+            'Anti-fraud: Device binding verification failed. Unregistered device key.'
+          );
+        }
+      }
+    }
 
     // Anti-fraud: prevent rapid duplicate check-ins within 2 minutes
     const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);

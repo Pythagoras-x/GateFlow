@@ -34,6 +34,9 @@ describe('AttendanceService', () => {
         findMany: vi.fn(),
         count: vi.fn(),
       },
+      device: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
       auditLog: {
         findFirst: vi.fn().mockResolvedValue(null),
         create: vi.fn().mockResolvedValue({}),
@@ -127,6 +130,103 @@ describe('AttendanceService', () => {
         method: AttendanceMethod.QR,
       })
     ).rejects.toThrow('A check-in was already recorded within the last 2 minutes');
+  });
+
+  describe('Anti-Fraud: Geofencing and Device Binding', () => {
+    const geofencedSite = {
+      id: 'site-hq',
+      name: 'HQ Campus',
+      siteIdHash: '1111111111111111111111111111111111111111111111111111111111111111',
+      latitude: 51.5074, // London
+      longitude: -0.1278,
+      radiusMeters: 150.0,
+    };
+
+    beforeEach(() => {
+      mockPrisma.employee.findUnique.mockResolvedValue({
+        id: 'emp-1',
+        employeeNo: 'EMP001',
+        nameEnc: encryptionService.encrypt('Alice Smith'),
+      });
+      mockPrisma.site.findUnique.mockResolvedValue(geofencedSite);
+      mockPrisma.attendanceEvent.findFirst.mockResolvedValue(null);
+      mockPrisma.attendanceEvent.create.mockImplementation(({ data }: any) => ({
+        id: 'event-geo-1',
+        ...data,
+        occurredAt: new Date(),
+      }));
+    });
+
+    it('allows check-in when coordinates are within the geofence radius', async () => {
+      // 50 meters away
+      const res = await attendanceService.checkIn({
+        employeeId: 'emp-1',
+        siteId: 'site-hq',
+        method: AttendanceMethod.QR,
+        latitude: 51.5077,
+        longitude: -0.1278,
+      });
+
+      expect(res.success).toBe(true);
+      expect(mockPrisma.attendanceEvent.create).toHaveBeenCalled();
+    });
+
+    it('rejects check-in when coordinates are outside the geofence radius', async () => {
+      // ~2.5km away
+      await expect(
+        attendanceService.checkIn({
+          employeeId: 'emp-1',
+          siteId: 'site-hq',
+          method: AttendanceMethod.QR,
+          latitude: 51.5300,
+          longitude: -0.1278,
+        })
+      ).rejects.toThrow('Geofence verification failed');
+    });
+
+    it('allows check-in without coordinates if device has no GPS', async () => {
+      const res = await attendanceService.checkIn({
+        employeeId: 'emp-1',
+        siteId: 'site-hq',
+        method: AttendanceMethod.QR,
+      });
+
+      expect(res.success).toBe(true);
+    });
+
+    it('accepts check-in when device signature matches registered bound device', async () => {
+      mockPrisma.device.findMany.mockResolvedValue([
+        { id: 'dev-1', publicKey: 'valid-public-key-abc' },
+      ]);
+
+      const res = await attendanceService.checkIn({
+        employeeId: 'emp-1',
+        siteId: 'site-hq',
+        method: AttendanceMethod.QR,
+        latitude: 51.5074,
+        longitude: -0.1278,
+        deviceSignature: 'valid-public-key-abc',
+      });
+
+      expect(res.success).toBe(true);
+    });
+
+    it('rejects check-in when device signature does not match bound device', async () => {
+      mockPrisma.device.findMany.mockResolvedValue([
+        { id: 'dev-1', publicKey: 'valid-public-key-abc' },
+      ]);
+
+      await expect(
+        attendanceService.checkIn({
+          employeeId: 'emp-1',
+          siteId: 'site-hq',
+          method: AttendanceMethod.QR,
+          latitude: 51.5074,
+          longitude: -0.1278,
+          deviceSignature: 'rogue-unregistered-device-xyz',
+        })
+      ).rejects.toThrow('Device binding verification failed');
+    });
   });
 
   describe('Attendance Corrections Workflow', () => {
