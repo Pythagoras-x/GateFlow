@@ -788,15 +788,19 @@ Employees and visitors interact with a normal app. The blockchain is invisible t
 | **Backend-managed keys** | The backend signs on behalf of organizational roles (anchorer, host service accounts) | MVP and most deployments |
 | **Passkey smart wallets** | Individuals hold passkey-secured smart wallets (via passkey-kit) and approve actions with biometrics | When individual non-repudiation matters |
 
-### Fee sponsorship
+### Fee sponsorship and spending guards
 
-All fees are paid by the company's **sponsor account** using fee-bump transactions:
+All Stellar transaction fees are paid by the company's **sponsor account** using fee-bump transactions:
 
-1. The inner transaction is built and signed by the acting account (anchorer, host, etc.).
-2. The sponsor wraps it in a fee-bump transaction and signs.
-3. The wrapped transaction is submitted through Soroban RPC.
-
-Monitor the sponsor account's XLM balance and alert when it falls below a configurable threshold.
+1. The inner transaction is built and signed by the acting account (anchorer, host, guard, etc.).
+2. The transaction is inspected by the **Spending Guards Engine** against active security policies:
+   - **Per-transaction ceiling:** Rejects inner transactions requesting fee bumps exceeding `maxFeeStroopsPerTx` (default 500,000 stroops = 0.05 XLM).
+   - **Contract target whitelist:** Enforces that only approved GateFlow Soroban contracts (Core, Attendance, Visitors) can be invoked.
+   - **Rolling velocity circuit breakers:** Tracks cumulative 1-hour and 24-hour expenditures against configurable budget caps (`hourlySpendCapStroops` and `dailySpendCapStroops`).
+   - **Treasury balance health checks:** Monitors remaining sponsor balance, transitioning health state (`HEALTHY` &rarr; `WARNING_LOW_BALANCE` &rarr; `CRITICAL_BUDGET_EXHAUSTED`).
+3. If guards approve, the sponsor signs and wraps the transaction as a fee-bump.
+4. The wrapped transaction is submitted through Soroban RPC, with cryptographic audit logs dispatched to the audit trail.
+5. Administrators monitor and configure gas station metrics in real time via `apps/admin/src/app/sponsor`.
 
 ### Key management (production)
 
@@ -952,7 +956,8 @@ Please **do not** open public issues for security problems. Email `security@your
 - [x] Dual public proof & visitor pass verifier application (`apps/verifier`)
 
 ### Phase 3: Hardening
-- [ ] Fee sponsorship with spending guards
+- [x] Fee sponsorship with spending guards and real-time gas station dashboard (`apps/admin/src/app/sponsor`)
+- [x] Outbound webhooks manager with HMAC-SHA256 signature verification and delivery logs (`apps/admin/src/app/webhooks`)
 - [x] Full RBAC, cryptographic audit log chain verification, and compliance export (JSON/CSV)
 - [x] Public auditor verification page (Merkle proofs + Soroban passes)
 - [x] Geofencing anti-fraud validation and device-binding presence checks
