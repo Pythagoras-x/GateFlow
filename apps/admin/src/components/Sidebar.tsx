@@ -14,6 +14,8 @@ import {
   QrCode,
   BarChart3,
   History,
+  Webhook,
+  Fuel,
 } from 'lucide-react';
 
 const navigation = [
@@ -26,6 +28,8 @@ const navigation = [
   { name: 'Gate Terminal', href: '/gate', icon: QrCode },
   { name: 'Anchors (On-chain)', href: '/anchors', icon: ShieldCheck },
   { name: 'Audit Trail', href: '/audit', icon: History },
+  { name: 'Webhooks', href: '/webhooks', icon: Webhook },
+  { name: 'Gas Station & Guards', href: '/sponsor', icon: Fuel },
 ];
 
 export function Sidebar() {

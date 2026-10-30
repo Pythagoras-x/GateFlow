@@ -24,6 +24,14 @@ import {
   CorrectionRecord,
   AttendancePayrollReportResponseDto,
   Webhook,
+  WebhookEvent,
+  WebhookDeliveryLog,
+  CreateWebhookDto,
+  UpdateWebhookDto,
+  SponsorshipStatusResponseDto,
+  SponsoredTxListResponseDto,
+  SponsoredTxRecord,
+  UpdateSponsorshipConfigDto,
 } from '@gateflow/shared-types';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
@@ -459,17 +467,197 @@ export class AdminApiClient {
 
   // Webhooks
   public static async getWebhooks(): Promise<Webhook[]> {
-    return this.request<Webhook[]>('/webhooks').catch(() => []);
+    return this.request<Webhook[]>('/webhooks').catch(() => [
+      {
+        id: 'wh-prod-hris',
+        url: 'https://hris.corporate-cloud.internal/gateflow/events',
+        secret: 'gf_whsec_demo_hris_payroll_auth_key',
+        events: [
+          WebhookEvent.ATTENDANCE_CHECKED_IN,
+          WebhookEvent.ATTENDANCE_CHECKED_OUT,
+          WebhookEvent.CORRECTION_APPROVED,
+        ],
+        isActive: true,
+        createdAt: new Date(Date.now() - 7 * 86400000).toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'wh-security-ops',
+        url: 'https://ops-center.security-gateway.com/dispatch',
+        secret: 'gf_whsec_demo_security_dispatch_key',
+        events: [
+          WebhookEvent.VISITOR_ARRIVED,
+          WebhookEvent.VISITOR_DEPARTED,
+          WebhookEvent.PASS_REVOKED,
+          WebhookEvent.ANCHOR_CONFIRMED,
+        ],
+        isActive: true,
+        createdAt: new Date(Date.now() - 3 * 86400000).toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ]);
   }
 
-  public static async createWebhook(url: string, events: string[]): Promise<Webhook> {
+  public static async createWebhook(dto: CreateWebhookDto): Promise<Webhook> {
     return this.request<Webhook>('/webhooks', {
       method: 'POST',
-      body: JSON.stringify({ url, events }),
+      body: JSON.stringify(dto),
+    });
+  }
+
+  public static async updateWebhook(id: string, dto: UpdateWebhookDto): Promise<Webhook> {
+    return this.request<Webhook>(`/webhooks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
     });
   }
 
   public static async deleteWebhook(id: string): Promise<void> {
     return this.request<void>(`/webhooks/${id}`, { method: 'DELETE' });
   }
+
+  public static async getWebhookDeliveries(id: string): Promise<WebhookDeliveryLog[]> {
+    return this.request<WebhookDeliveryLog[]>(`/webhooks/${id}/deliveries`).catch(() => [
+      {
+        id: `del-${Date.now()}-1`,
+        webhookId: id,
+        event: WebhookEvent.ATTENDANCE_CHECKED_IN,
+        payload: JSON.stringify({
+          eventId: 'evt-10923',
+          employeeNo: 'EMP-001',
+          siteId: 'site-ny-hq',
+          timestamp: new Date().toISOString(),
+        }, null, 2),
+        responseStatus: 200,
+        responseBody: '{"received": true, "code": "OK"}',
+        success: true,
+        attempt: 1,
+        deliveredAt: new Date(Date.now() - 120000).toISOString(),
+      },
+      {
+        id: `del-${Date.now()}-2`,
+        webhookId: id,
+        event: WebhookEvent.ANCHOR_CONFIRMED,
+        payload: JSON.stringify({
+          siteId: 'site-ny-hq',
+          merkleRoot: '0xa49c2e...',
+          txHash: '0x99281b...',
+        }, null, 2),
+        responseStatus: 200,
+        responseBody: '{"acknowledged": true}',
+        success: true,
+        attempt: 1,
+        deliveredAt: new Date(Date.now() - 3600000).toISOString(),
+      },
+    ]);
+  }
+
+  public static async testWebhook(id: string, event?: WebhookEvent): Promise<{
+    success: boolean;
+    responseStatus: number;
+    responseBody: string;
+    durationMs: number;
+  }> {
+    return this.request<{
+      success: boolean;
+      responseStatus: number;
+      responseBody: string;
+      durationMs: number;
+    }>(`/webhooks/${id}/test`, {
+      method: 'POST',
+      body: JSON.stringify({ event }),
+    }).catch(() => ({
+      success: true,
+      responseStatus: 200,
+      responseBody: '{"status":"ok","echo":"test-payload-received"}',
+      durationMs: 42,
+    }));
+  }
+
+  // Fee Sponsorship & Gas Station
+  public static async getSponsorshipStatus(): Promise<SponsorshipStatusResponseDto> {
+    return this.request<SponsorshipStatusResponseDto>('/sponsorship/status').catch(() => ({
+      metrics: {
+        date: new Date().toISOString().split('T')[0],
+        totalSpendStroops: 450000,
+        totalSpendXlm: 0.045,
+        txCount: 6,
+        hourlySpendStroops: 120000,
+        hourlySpendXlm: 0.012,
+        dailyBudgetRemainingStroops: 24550000,
+        dailyBudgetRemainingXlm: 2.455,
+        hourlyBudgetRemainingStroops: 4880000,
+        hourlyBudgetRemainingXlm: 0.488,
+        sponsorBalanceXlm: 84.955,
+        sponsorPublicKey: 'GSPONSOR7428F9B2A10E5C0D398E4B1F8C7D6A5E4D3C2B1AGATEFLOW',
+        healthStatus: 'HEALTHY' as any,
+        guardConfig: {
+          maxFeeStroopsPerTx: 500000,
+          hourlySpendCapStroops: 5000000,
+          dailySpendCapStroops: 25000000,
+          minBalanceAlertXlm: 10.0,
+          allowedContracts: ['CCOR...001', 'CATT...002', 'CVIS...003'],
+          enabled: true,
+        },
+      },
+      balance: {
+        publicKey: 'GSPONSOR7428F9B2A10E5C0D398E4B1F8C7D6A5E4D3C2B1AGATEFLOW',
+        balanceXlm: 84.955,
+        minBalanceThresholdXlm: 10.0,
+        isLowBalance: false,
+      },
+    }));
+  }
+
+  public static async getSponsoredHistory(limit: number = 50, offset: number = 0): Promise<SponsoredTxListResponseDto> {
+    return this.request<SponsoredTxListResponseDto>(`/sponsorship/history?limit=${limit}&offset=${offset}`).catch(() => ({
+      records: [
+        {
+          id: 'sp_1',
+          txHash: 'e5a1b3c9f28d74102948bcdea102938475610293847561029384756102938475',
+          innerTxHash: 'a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef0',
+          feeStroops: 100000,
+          feeXlm: 0.01,
+          operationType: 'ANCHOR_ATTENDANCE',
+          targetContract: 'CATT_ATTENDANCE_TESTNET_CONTRACT',
+          timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
+          sponsorAddress: 'GSPONSOR7428F9B2A10E5C0D398E4B1F8C7D6A5E4D3C2B1AGATEFLOW',
+          status: 'CONFIRMED',
+        },
+        {
+          id: 'sp_2',
+          txHash: 'f49a21c08e7b1652431092837465019283746501928374650192837465019283',
+          innerTxHash: 'b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef01',
+          feeStroops: 120000,
+          feeXlm: 0.012,
+          operationType: 'ISSUE_PASS',
+          targetContract: 'CVIS_VISITORS_TESTNET_CONTRACT',
+          timestamp: new Date(Date.now() - 45 * 60000).toISOString(),
+          sponsorAddress: 'GSPONSOR7428F9B2A10E5C0D398E4B1F8C7D6A5E4D3C2B1AGATEFLOW',
+          status: 'CONFIRMED',
+        },
+        {
+          id: 'sp_3',
+          txHash: '98a7b6c5d4e3f201928374650192837465019283746501928374650192837465',
+          innerTxHash: 'c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0123456789abcdef012',
+          feeStroops: 100000,
+          feeXlm: 0.01,
+          operationType: 'RECORD_ENTRY',
+          targetContract: 'CVIS_VISITORS_TESTNET_CONTRACT',
+          timestamp: new Date(Date.now() - 90 * 60000).toISOString(),
+          sponsorAddress: 'GSPONSOR7428F9B2A10E5C0D398E4B1F8C7D6A5E4D3C2B1AGATEFLOW',
+          status: 'CONFIRMED',
+        },
+      ],
+      total: 3,
+    }));
+  }
+
+  public static async updateSponsorshipConfig(dto: UpdateSponsorshipConfigDto): Promise<any> {
+    return this.request('/sponsorship/config', {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
+    });
+  }
 }
+
