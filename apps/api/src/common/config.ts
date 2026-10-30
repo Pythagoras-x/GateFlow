@@ -17,5 +17,12 @@ export const config = {
     sponsorSecret: process.env.SPONSOR_SECRET || '',
     anchorerSecret: process.env.ANCHORER_SECRET || '',
     useMock: process.env.STELLAR_USE_MOCK !== 'false',
+    sponsorship: {
+      maxFeeStroopsPerTx: parseInt(process.env.SPONSOR_MAX_FEE_STROOPS || '500000', 10),
+      hourlySpendCapStroops: parseInt(process.env.SPONSOR_HOURLY_CAP_STROOPS || '5000000', 10),
+      dailySpendCapStroops: parseInt(process.env.SPONSOR_DAILY_CAP_STROOPS || '25000000', 10),
+      minBalanceAlertXlm: parseFloat(process.env.SPONSOR_MIN_BALANCE_XLM || '10.0'),
+      enabled: process.env.SPONSORSHIP_GUARDS_ENABLED !== 'false',
+    },
   },
 };

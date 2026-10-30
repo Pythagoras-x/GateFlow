@@ -163,7 +163,7 @@ describe('Phase 3 Hardening End-to-End Integration Flow', () => {
     }, 'admin-super');
 
     expect(webhook.id).toBeDefined();
-    expect(webhook.secret).toMatch(/^whsec_/);
+    expect(webhook.secret).toMatch(/^gf_sec_/);
 
     const mockFetch = vi.fn().mockResolvedValue({
       status: 200,

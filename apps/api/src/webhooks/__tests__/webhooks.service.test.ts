@@ -51,13 +51,13 @@ describe('WebhooksService', () => {
 
     expect(result.id).toBe('wh-1');
     expect(result.url).toBe('https://example.com/webhook');
-    expect(result.secret).toMatch(/^whsec_[0-9a-f]{48}$/);
+    expect(result.secret).toMatch(/^gf_sec_[0-9a-f]{48}$/);
     expect(result.events).toContain(WebhookEvent.ATTENDANCE_CHECKED_IN);
     expect(mockAudit.logAction).toHaveBeenCalled();
   });
 
   it('computes valid HMAC-SHA256 signature for outgoing payload', () => {
-    const secret = 'whsec_test_secret_12345';
+    const secret = 'gf_sec_test_secret_12345';
     const payload = JSON.stringify({ hello: 'world' });
 
     const signatureHeader = webhooksService.signPayload(secret, payload);
@@ -70,7 +70,7 @@ describe('WebhooksService', () => {
     const mockWebhook = {
       id: 'wh-1',
       url: 'https://example.com/webhook',
-      secret: 'whsec_secret_123',
+      secret: 'gf_sec_secret_123',
       events: `${WebhookEvent.ATTENDANCE_CHECKED_IN},${WebhookEvent.PASS_ISSUED}`,
       isActive: true,
       createdAt: new Date(),
@@ -118,7 +118,7 @@ describe('WebhooksService', () => {
     const mockWebhook = {
       id: 'wh-1',
       url: 'https://example.com/broken-endpoint',
-      secret: 'whsec_secret_123',
+      secret: 'gf_sec_secret_123',
       events: WebhookEvent.ATTENDANCE_CHECKED_IN,
       isActive: true,
       createdAt: new Date(),

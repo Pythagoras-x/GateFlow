@@ -48,7 +48,7 @@ export class WebhooksService {
       throw new BadRequestException('At least one event must be selected for subscription');
     }
 
-    const secret = dto.secret || `whsec_${randomBytes(24).toString('hex')}`;
+    const secret = dto.secret || `gf_sec_${randomBytes(24).toString('hex')}`;
     const eventsStr = dto.events.join(',');
 
     const record = await this.prisma.webhook.create({
