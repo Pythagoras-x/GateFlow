@@ -9,6 +9,8 @@ import {
   WebhookEvent,
   AuditVerificationStatus,
   CorrectionStatus,
+  SponsorshipGuardCode,
+  SponsorshipHealthStatus,
 } from './enums';
 
 export interface Tenant {
@@ -253,3 +255,60 @@ export interface GateLog {
   pass?: Partial<VisitorPass>;
   site?: Partial<Site>;
 }
+
+export interface SponsorshipGuardConfig {
+  maxFeeStroopsPerTx: number;
+  hourlySpendCapStroops: number;
+  dailySpendCapStroops: number;
+  minBalanceAlertXlm: number;
+  allowedContracts?: string[];
+  enabled: boolean;
+}
+
+export interface SponsorshipEvaluationResult {
+  allowed: boolean;
+  code: SponsorshipGuardCode;
+  reason?: string;
+  feeStroops: number;
+  projectedDailySpendStroops: number;
+  projectedHourlySpendStroops: number;
+}
+
+export interface SponsorAccountBalance {
+  publicKey: string;
+  balanceXlm: number;
+  sequenceNumber?: string;
+  minBalanceThresholdXlm: number;
+  isLowBalance: boolean;
+}
+
+export interface SponsoredTxRecord {
+  id: string;
+  txHash: string;
+  innerTxHash?: string;
+  feeStroops: number;
+  feeXlm: number;
+  operationType: string;
+  targetContract?: string;
+  timestamp: string;
+  sponsorAddress: string;
+  status: 'CONFIRMED' | 'FAILED' | 'REJECTED';
+}
+
+export interface SponsorshipDailyMetrics {
+  date: string;
+  totalSpendStroops: number;
+  totalSpendXlm: number;
+  txCount: number;
+  hourlySpendStroops: number;
+  hourlySpendXlm: number;
+  dailyBudgetRemainingStroops: number;
+  dailyBudgetRemainingXlm: number;
+  hourlyBudgetRemainingStroops: number;
+  hourlyBudgetRemainingXlm: number;
+  sponsorBalanceXlm: number;
+  sponsorPublicKey: string;
+  healthStatus: SponsorshipHealthStatus;
+  guardConfig: SponsorshipGuardConfig;
+}
+

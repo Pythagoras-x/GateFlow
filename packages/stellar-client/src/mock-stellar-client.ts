@@ -8,6 +8,7 @@ import {
   StellarConfig,
 } from './types';
 import { normalizeBytes32Hex } from './utils';
+import { SponsorshipSpendingGuard } from './sponsorship-guard';
 
 export class MockStellarClient implements IStellarClient {
   private adminAddress: string = 'GADMIN0000000000000000000000000000000000000000000000GATEFLOW';
@@ -20,11 +21,24 @@ export class MockStellarClient implements IStellarClient {
   private anchors = new Map<string, OnchainAnchorData>(); // key: `${siteIdHex}:${period}`
   private corrections = new Map<string, boolean>();
   private passes = new Map<string, OnchainPassData>();
+  private sponsorshipGuard: SponsorshipSpendingGuard;
 
   constructor(config: StellarConfig = {}) {
     if (config.coreContractId) this.coreContractId = config.coreContractId;
     if (config.attendanceContractId) this.attendanceContractId = config.attendanceContractId;
     if (config.visitorsContractId) this.visitorsContractId = config.visitorsContractId;
+
+    this.sponsorshipGuard = new SponsorshipSpendingGuard(
+      {
+        allowedContracts: [
+          this.coreContractId,
+          this.attendanceContractId,
+          this.visitorsContractId,
+        ],
+        ...config.sponsorshipGuardConfig,
+      },
+      config.networkPassphrase
+    );
 
     // Grant Admin & Anchorer & Host role to default mock accounts
     this.addRoleInternal(this.adminAddress, OnchainContractRole.Admin);
@@ -248,5 +262,9 @@ export class MockStellarClient implements IStellarClient {
     const pass = this.passes.get(normPass);
     if (!pass) return null;
     return { ...pass };
+  }
+
+  public getSponsorshipGuard(): SponsorshipSpendingGuard {
+    return this.sponsorshipGuard;
   }
 }

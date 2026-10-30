@@ -25,6 +25,11 @@ import {
   Webhook,
   WebhookDeliveryLog,
   PayrollReportItem,
+  SponsorshipGuardConfig,
+  SponsorshipEvaluationResult,
+  SponsorAccountBalance,
+  SponsoredTxRecord,
+  SponsorshipDailyMetrics,
 } from './models';
 
 // Auth
@@ -320,3 +325,38 @@ export interface AttendancePayrollReportResponseDto {
   };
   items: PayrollReportItem[];
 }
+
+// Sponsorship & Gas Station
+export interface SponsorshipStatusResponseDto {
+  metrics: SponsorshipDailyMetrics;
+  balance: SponsorAccountBalance;
+}
+
+export interface SponsoredTxListResponseDto {
+  records: SponsoredTxRecord[];
+  total: number;
+}
+
+export interface UpdateSponsorshipConfigDto {
+  maxFeeStroopsPerTx?: number;
+  hourlySpendCapStroops?: number;
+  dailySpendCapStroops?: number;
+  minBalanceAlertXlm?: number;
+  allowedContracts?: string[];
+  enabled?: boolean;
+}
+
+export interface WrapSponsoredTxRequestDto {
+  innerTxXdr: string;
+  operationType: string;
+  targetContract?: string;
+  maxFeeStroops?: number;
+}
+
+export interface WrapSponsoredTxResponseDto {
+  success: boolean;
+  evaluation: SponsorshipEvaluationResult;
+  feeBumpTxXdr?: string;
+  txHash?: string;
+}
+

@@ -1,4 +1,5 @@
-import { OnchainContractRole } from '@gateflow/shared-types';
+import { OnchainContractRole, SponsorshipGuardConfig } from '@gateflow/shared-types';
+import type { SponsorshipSpendingGuard } from './sponsorship-guard';
 
 export interface StellarConfig {
   networkPassphrase?: string;
@@ -11,6 +12,7 @@ export interface StellarConfig {
   anchorerSecret?: string;
   adminSecret?: string;
   useMock?: boolean;
+  sponsorshipGuardConfig?: Partial<SponsorshipGuardConfig>;
 }
 
 export interface OnchainAnchorResult {
@@ -75,4 +77,5 @@ export interface IStellarClient {
   recordExit(passIdHex: string, guardSecret?: string): Promise<string>;
   revokePass(passIdHex: string, callerSecret?: string): Promise<string>;
   verifyPass(passIdHex: string): Promise<OnchainPassData | null>;
+  getSponsorshipGuard(): SponsorshipSpendingGuard;
 }

@@ -9,14 +9,30 @@ import {
 } from './types';
 import { MockStellarClient } from './mock-stellar-client';
 import { hexToBytes, normalizeBytes32Hex } from './utils';
+import { SponsorshipSpendingGuard } from './sponsorship-guard';
 
 export class StellarClient implements IStellarClient {
   private config: StellarConfig;
   private server?: StellarSdk.rpc.Server;
   private mockFallback?: MockStellarClient;
+  private sponsorshipGuard: SponsorshipSpendingGuard;
 
   constructor(config: StellarConfig = {}) {
     this.config = config;
+
+    const allowedContracts = [
+      config.coreContractId,
+      config.attendanceContractId,
+      config.visitorsContractId,
+    ].filter(Boolean) as string[];
+
+    this.sponsorshipGuard = new SponsorshipSpendingGuard(
+      {
+        allowedContracts: allowedContracts.length > 0 ? allowedContracts : undefined,
+        ...config.sponsorshipGuardConfig,
+      },
+      config.networkPassphrase
+    );
 
     // Use mock client if configured or if no RPC endpoint / contract IDs are provided
     if (config.useMock || !config.rpcUrl || !config.coreContractId) {
@@ -172,6 +188,26 @@ export class StellarClient implements IStellarClient {
   public async verifyPass(passIdHex: string): Promise<OnchainPassData | null> {
     if (this.isMock()) return this.mockFallback!.verifyPass(passIdHex);
     return this.mockFallback!.verifyPass(passIdHex);
+  }
+
+  public getSponsorshipGuard(): SponsorshipSpendingGuard {
+    if (this.mockFallback) return this.mockFallback.getSponsorshipGuard();
+    return this.sponsorshipGuard;
+  }
+
+  /**
+   * Wraps an inner transaction with fee-bump after evaluating spending guards.
+   */
+  public wrapWithGuardedFeeBump(
+    innerTx: StellarSdk.Transaction,
+    sponsorKeypair: StellarSdk.Keypair,
+    options?: {
+      maxFeeStroops?: number;
+      targetContract?: string;
+      operationType?: string;
+    }
+  ) {
+    return this.getSponsorshipGuard().wrapWithGuardedFeeBump(innerTx, sponsorKeypair, options);
   }
 
   /**
