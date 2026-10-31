@@ -45,6 +45,8 @@ jobs:
           cache: 'pnpm'
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
+      - name: Generate Prisma Client
+        run: pnpm --filter @gateflow/api prisma:generate
       - name: Run Typecheck
         run: pnpm typecheck
       - name: Run Tests
