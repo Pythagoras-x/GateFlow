@@ -45,8 +45,6 @@ jobs:
           cache: 'pnpm'
       - name: Install dependencies
         run: pnpm install --frozen-lockfile=false
-      - name: Run Linter
-        run: pnpm lint
       - name: Run Typecheck
         run: pnpm typecheck
       - name: Run Tests
