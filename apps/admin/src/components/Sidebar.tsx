@@ -16,6 +16,7 @@ import {
   History,
   Webhook,
   Fuel,
+  Smartphone,
 } from 'lucide-react';
 
 const navigation = [
@@ -26,8 +27,10 @@ const navigation = [
   { name: 'Reports & Payroll', href: '/reports', icon: BarChart3 },
   { name: 'Visitors & Passes', href: '/visitors', icon: UserCheck },
   { name: 'Gate Terminal', href: '/gate', icon: QrCode },
+  { name: 'Employee Portal', href: '/employee-portal', icon: Smartphone },
   { name: 'Anchors (On-chain)', href: '/anchors', icon: ShieldCheck },
   { name: 'Audit Trail', href: '/audit', icon: History },
+  { name: 'Compliance (GDPR)', href: '/compliance', icon: FileCheck2 },
   { name: 'Webhooks', href: '/webhooks', icon: Webhook },
   { name: 'Gas Station & Guards', href: '/sponsor', icon: Fuel },
 ];

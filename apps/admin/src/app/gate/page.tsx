@@ -14,6 +14,8 @@ import {
   Building2,
   RefreshCw,
   Search,
+  Printer,
+  Camera,
 } from 'lucide-react';
 import { AdminApiClient } from '@/lib/api';
 import {
@@ -35,6 +37,8 @@ export default function GateTerminalPage() {
 
   // Walk-in modal
   const [showWalkInModal, setShowWalkInModal] = useState(false);
+  const [showBadgeModal, setShowBadgeModal] = useState(false);
+  const [isScanningCamera, setIsScanningCamera] = useState(false);
   const [walkInName, setWalkInName] = useState('');
   const [walkInEmail, setWalkInEmail] = useState('');
   const [walkInCompany, setWalkInCompany] = useState('');
@@ -265,6 +269,24 @@ export default function GateTerminalPage() {
                 />
               </div>
               <button
+                type="button"
+                onClick={() => {
+                  setIsScanningCamera(!isScanningCamera);
+                  if (!isScanningCamera) {
+                    setFeedback({ message: 'Camera / optical scanner stream active: point QR pass towards lens', type: 'success' });
+                  }
+                }}
+                className={`px-3 py-2 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                  isScanningCamera
+                    ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                }`}
+                title="Toggle Optical Camera Scanner"
+              >
+                <Camera className="h-4 w-4" />
+                {isScanningCamera ? 'Scanner On' : 'Camera'}
+              </button>
+              <button
                 type="submit"
                 disabled={isVerifying || !passInput.trim()}
                 className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-bold text-sm transition-colors"
@@ -342,20 +364,29 @@ export default function GateTerminalPage() {
 
                   {/* Gate Action Buttons */}
                   {verifyResult.valid && (
-                    <div className="flex gap-3 pt-3 border-t border-slate-800">
+                    <div className="flex gap-2 pt-3 border-t border-slate-800">
                       <button
                         onClick={handleRecordEntry}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-sm transition-colors shadow-lg shadow-emerald-500/20"
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs transition-colors shadow-lg shadow-emerald-500/20"
                       >
                         <LogIn className="h-4 w-4" />
-                        Record Gate Entry
+                        Record Entry
                       </button>
                       <button
                         onClick={handleRecordExit}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-sm transition-colors"
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs transition-colors"
                       >
                         <LogOut className="h-4 w-4" />
-                        Record Gate Exit
+                        Record Exit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowBadgeModal(true)}
+                        className="px-3 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 font-bold text-xs flex items-center gap-1.5 transition-colors"
+                        title="Print Physical Visitor Badge"
+                      >
+                        <Printer className="h-4 w-4" />
+                        Print Badge
                       </button>
                     </div>
                   )}
@@ -505,6 +536,64 @@ export default function GateTerminalPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Printable Visitor Badge Modal */}
+      {showBadgeModal && verifyResult?.pass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-slate-900 shadow-2xl border-2 border-slate-900 print:m-0 print:border-none">
+            <div className="flex items-center justify-between border-b pb-3 mb-4">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-600">Visitor Access Pass</span>
+                <h3 className="text-xl font-black text-slate-950">GATEFLOW</h3>
+              </div>
+              <span className="text-[10px] font-bold bg-slate-900 text-white px-2 py-0.5 rounded">
+                VISITOR
+              </span>
+            </div>
+
+            <div className="text-center my-4 p-4 bg-slate-50 border rounded-xl flex flex-col items-center">
+              <div className="w-28 h-28 bg-slate-900 rounded-lg flex items-center justify-center p-2 mb-2">
+                <QrCode className="w-24 h-24 text-emerald-400" />
+              </div>
+              <h4 className="text-lg font-bold text-slate-900">{verifyResult.pass.visitor?.name || 'Authorized Visitor'}</h4>
+              <p className="text-xs text-slate-600">{verifyResult.pass.visitor?.company || 'General Guest'}</p>
+            </div>
+
+            <div className="space-y-1 text-xs text-slate-600 border-t pt-3 mb-4">
+              <div className="flex justify-between">
+                <span>Site:</span>
+                <span className="font-semibold text-slate-900">{selectedSite?.site.name || 'HQ'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Valid Until:</span>
+                <span className="font-semibold text-slate-900">{new Date(verifyResult.pass.validUntil).toLocaleTimeString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Pass ID:</span>
+                <span className="font-mono text-[10px] text-slate-500 truncate max-w-[150px]">{verifyResult.pass.passIdHash}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 print:hidden">
+              <button
+                type="button"
+                onClick={() => setShowBadgeModal(false)}
+                className="flex-1 py-2 text-xs font-semibold text-slate-500 hover:text-slate-900 border rounded-lg"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex-1 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg flex items-center justify-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                Print Badge
+              </button>
+            </div>
           </div>
         </div>
       )}

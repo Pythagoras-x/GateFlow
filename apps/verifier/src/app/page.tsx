@@ -135,6 +135,33 @@ export default function VerifierPage() {
           ? 'Leaf verification FAILED: Raw attendance event data does not match the salted leaf hash.'
           : 'Merkle root mismatch: Recomputed root from proof path does not equal expected root (tampered proof).',
       });
+
+      // Query live API endpoint if accessible to verify on-chain ledger state
+      fetch('/api/v1/verify/proof', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bundle }),
+      })
+        .then(async (res) => {
+          if (res.ok) {
+            const liveData = await res.json();
+            if (liveData.onchainConfirmed) {
+              setMerkleResult((prev: any) =>
+                prev
+                  ? {
+                      ...prev,
+                      message:
+                        prev.message +
+                        ` (Stellar Soroban confirmed on ledger ${liveData.onchainLedger || 'active'})`,
+                    }
+                  : prev
+              );
+            }
+          }
+        })
+        .catch(() => {
+          // Client-side math verification completed
+        });
     } catch (err: any) {
       alert('Error parsing JSON proof bundle: ' + err.message);
     }
