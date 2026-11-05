@@ -211,9 +211,11 @@ export class AttendanceService {
     }
 
     // Anti-fraud: Device binding validation
-    const boundDevices = await this.prisma.device.findMany({
-      where: { employeeId: employee.id },
-    });
+    const boundDevices = this.prisma.device
+      ? await this.prisma.device.findMany({
+          where: { employeeId: employee.id },
+        })
+      : [];
     if (boundDevices.length > 0) {
       if (!dto.deviceSignature) {
         throw new ForbiddenException(

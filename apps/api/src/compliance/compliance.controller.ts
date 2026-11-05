@@ -13,9 +13,9 @@ import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '@gateflow/shared-types';
 
 export class SubjectErasureDto {
-  subjectType: 'Employee' | 'Visitor';
-  subjectId: string;
-  reason: string;
+  subjectType!: 'Employee' | 'Visitor';
+  subjectId!: string;
+  reason!: string;
 }
 
 @ApiTags('Compliance')
