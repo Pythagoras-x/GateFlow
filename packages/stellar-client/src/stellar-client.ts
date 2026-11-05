@@ -127,11 +127,11 @@ export class StellarClient implements IStellarClient {
     // If sponsor secret exists and is distinct, wrap with guarded fee-bump
     if (this.config.sponsorSecret && this.config.sponsorSecret !== signer.secret()) {
       const sponsorKeypair = StellarSdk.Keypair.fromSecret(this.config.sponsorSecret);
-      const feeBump = this.wrapWithGuardedFeeBump(tx, sponsorKeypair, {
+      const guardedResult = this.wrapWithGuardedFeeBump(tx, sponsorKeypair, {
         targetContract: contractId,
         operationType: method,
       });
-      const sendRes = await this.server.sendTransaction(feeBump);
+      const sendRes = await this.server.sendTransaction(guardedResult.feeBumpTx);
       return this.waitForConfirmation(sendRes.hash);
     }
 
