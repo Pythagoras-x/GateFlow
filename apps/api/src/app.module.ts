@@ -9,6 +9,8 @@ import { AnchoringModule } from './anchoring/anchoring.module';
 import { VisitorsModule } from './visitors/visitors.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { SponsorshipModule } from './sponsorship/sponsorship.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { ComplianceModule } from './compliance/compliance.module';
 import { PrismaService } from './common/prisma.service';
 import { EncryptionService } from './common/encryption.service';
 
@@ -24,6 +26,8 @@ import { EncryptionService } from './common/encryption.service';
     VisitorsModule,
     WebhooksModule,
     SponsorshipModule,
+    NotificationsModule,
+    ComplianceModule,
   ],
   providers: [PrismaService, EncryptionService],
 })

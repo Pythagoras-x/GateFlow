@@ -7,9 +7,10 @@ import { PrismaService } from '../common/prisma.service';
 import { EncryptionService } from '../common/encryption.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, NotificationsModule],
   controllers: [VisitorsController, PassesController, GateController],
   providers: [VisitorsService, PrismaService, EncryptionService, AuditService],
   exports: [VisitorsService],

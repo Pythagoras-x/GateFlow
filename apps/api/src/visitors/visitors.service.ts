@@ -9,6 +9,7 @@ import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 import { EncryptionService } from '../common/encryption.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { StellarClient, stringToBytes32 } from '@gateflow/stellar-client';
 import { config } from '../common/config';
 import {
@@ -32,11 +33,16 @@ import {
 @Injectable()
 export class VisitorsService {
   private stellarClient: StellarClient;
+  private blacklist = new Set<string>([
+    'banned@threat.example',
+    'attacker@malicious.example',
+  ]);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly encryption: EncryptionService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly notifications?: NotificationsService
   ) {
     this.stellarClient = new StellarClient({
       networkPassphrase: config.stellar.networkPassphrase,
@@ -52,10 +58,23 @@ export class VisitorsService {
     this.stellarClient = client;
   }
 
+  public addToBlacklist(identifier: string) {
+    this.blacklist.add(identifier.toLowerCase().trim());
+  }
+
+  public isBlacklisted(emailOrPhone: string): boolean {
+    return this.blacklist.has(emailOrPhone.toLowerCase().trim());
+  }
+
   /**
    * Pre-register a visitor with encrypted PII.
    */
   public async createVisitor(hostId: string, dto: CreateVisitorDto): Promise<Visitor> {
+    if (this.isBlacklisted(dto.email) || (dto.phone && this.isBlacklisted(dto.phone))) {
+      throw new ForbiddenException(
+        `Security Alert: Visitor "${dto.name}" (${dto.email}) is flagged on the security blacklist.`
+      );
+    }
     const nameEnc = this.encryption.encrypt(dto.name.trim());
     const emailEnc = this.encryption.encrypt(dto.email.toLowerCase().trim());
     const phoneEnc = dto.phone ? this.encryption.encrypt(dto.phone.trim()) : undefined;
@@ -215,7 +234,20 @@ export class VisitorsService {
       onchainTxHash,
     });
 
-    return this.formatVisitorPass(pass);
+    const formattedPass = this.formatVisitorPass(pass);
+
+    if (this.notifications) {
+      await this.notifications
+        .dispatchVisitorPass({
+          pass: formattedPass,
+          visitor: this.decryptVisitor(visitor),
+        })
+        .catch((err) => {
+          console.warn(`Pass dispatch notification error: ${err.message}`);
+        });
+    }
+
+    return formattedPass;
   }
 
   /**
