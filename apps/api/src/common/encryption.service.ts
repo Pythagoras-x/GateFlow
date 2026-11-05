@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'crypto';
 
 @Injectable()
 export class EncryptionService {
@@ -48,5 +48,13 @@ export class EncryptionService {
     let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
+  }
+
+  /**
+   * Generates a deterministic HMAC blind index for O(1) encrypted searches without leaking plaintext.
+   */
+  public hashBlindIndex(value: string): string {
+    if (!value) return '';
+    return createHmac('sha256', this.key).update(value.toLowerCase().trim()).digest('hex');
   }
 }

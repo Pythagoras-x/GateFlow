@@ -12,7 +12,7 @@ export class EmployeesService {
     private readonly audit: AuditService
   ) {}
 
-  public async createEmployee(dto: CreateEmployeeDto, actorId: string): Promise<Employee> {
+  public async createEmployee(dto: CreateEmployeeDto, actorId: string, tenantId?: string): Promise<Employee> {
     const existing = await this.prisma.employee.findUnique({
       where: { employeeNo: dto.employeeNo },
     });
@@ -25,6 +25,7 @@ export class EmployeesService {
 
     const employee = await this.prisma.employee.create({
       data: {
+        tenantId: dto.tenantId || tenantId,
         employeeNo: dto.employeeNo,
         nameEnc,
         phoneEnc,
@@ -61,8 +62,13 @@ export class EmployeesService {
     };
   }
 
-  public async getEmployees(): Promise<Employee[]> {
+  public async getEmployees(tenantId?: string): Promise<Employee[]> {
+    const where: any = {};
+    if (tenantId) {
+      where.tenantId = tenantId;
+    }
     const employees = await this.prisma.employee.findMany({
+      where,
       include: { shift: true },
       orderBy: { createdAt: 'desc' },
     });

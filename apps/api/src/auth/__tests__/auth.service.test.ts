@@ -17,10 +17,12 @@ describe('AuthService', () => {
     jwtService = new JwtService({ secret: 'test-secret' });
     mockPrisma = {
       user: {
+        findFirst: vi.fn(),
         findMany: vi.fn(),
         findUnique: vi.fn(),
         count: vi.fn(),
         create: vi.fn(),
+        update: vi.fn(),
       },
       auditLog: {
         findFirst: vi.fn().mockResolvedValue(null),

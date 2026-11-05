@@ -18,15 +18,29 @@ export class AuthService {
   ) {}
 
   public async login(dto: LoginRequestDto): Promise<LoginResponseDto> {
-    const users = await this.prisma.user.findMany();
-    // Decrypt emails to match
-    const user = users.find((u) => {
-      try {
-        return this.encryption.decrypt(u.emailEnc).toLowerCase() === dto.email.toLowerCase();
-      } catch {
-        return false;
-      }
+    const emailHash = this.encryption.hashBlindIndex(dto.email);
+    let user = await this.prisma.user.findFirst({
+      where: { emailHash },
     });
+
+    if (!user) {
+      // Fallback for legacy records without blind index: find and backfill
+      const users = await this.prisma.user.findMany();
+      user = users.find((u) => {
+        try {
+          return this.encryption.decrypt(u.emailEnc).toLowerCase() === dto.email.toLowerCase();
+        } catch {
+          return false;
+        }
+      }) || null;
+
+      if (user) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { emailHash },
+        });
+      }
+    }
 
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
@@ -119,10 +133,12 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const emailEnc = this.encryption.encrypt(email);
+    const emailHash = this.encryption.hashBlindIndex(email);
 
     return this.prisma.user.create({
       data: {
         emailEnc,
+        emailHash,
         passwordHash,
         role: UserRole.Admin,
         status: 'ACTIVE',

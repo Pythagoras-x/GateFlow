@@ -50,6 +50,7 @@ export interface LoginResponseDto {
 
 // Sites
 export interface CreateSiteDto {
+  tenantId?: string;
   name: string;
   timezone?: string;
   latitude?: number;
@@ -64,6 +65,7 @@ export interface SiteResponseDto {
 
 // Employees
 export interface CreateEmployeeDto {
+  tenantId?: string;
   employeeNo: string;
   name: string;
   phone?: string;
@@ -158,6 +160,7 @@ export interface VerifyProofResponseDto {
 
 // Visitors and Passes
 export interface CreateVisitorDto {
+  tenantId?: string;
   name: string;
   email: string;
   phone?: string;

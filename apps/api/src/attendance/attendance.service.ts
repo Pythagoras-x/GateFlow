@@ -44,10 +44,37 @@ interface QrTokenPayload {
   expiresAt: number;
 }
 
+export class NonceReplayGuard {
+  private nonces = new Map<string, number>();
+
+  public checkAndRecord(nonce: string, ttlSeconds: number = 60): boolean {
+    this.evictExpired();
+    const now = Date.now();
+    if (this.nonces.has(nonce)) {
+      return false;
+    }
+    this.nonces.set(nonce, now + ttlSeconds * 1000);
+    return true;
+  }
+
+  private evictExpired(): void {
+    const now = Date.now();
+    for (const [nonce, expiresAt] of this.nonces.entries()) {
+      if (now > expiresAt) {
+        this.nonces.delete(nonce);
+      }
+    }
+  }
+
+  public clear(): void {
+    this.nonces.clear();
+  }
+}
+
 @Injectable()
 export class AttendanceService {
-  // In-memory set for single-use replay protection
-  private usedNonces = new Set<string>();
+  // Bounded TTL-expiring nonce replay guard
+  private nonceGuard = new NonceReplayGuard();
   private stellarClient: StellarClient;
 
   constructor(
@@ -128,11 +155,11 @@ export class AttendanceService {
       throw new BadRequestException('QR token has expired');
     }
 
-    if (this.usedNonces.has(payload.nonce)) {
+    const recorded = this.nonceGuard.checkAndRecord(payload.nonce, config.qrTokenTtlSeconds * 2);
+    if (!recorded) {
       throw new ConflictException('QR token has already been used (replay detected)');
     }
 
-    this.usedNonces.add(payload.nonce);
     return payload;
   }
 
@@ -184,17 +211,20 @@ export class AttendanceService {
     }
 
     // Anti-fraud: Device binding validation
-    if (dto.deviceSignature) {
-      const boundDevices = await this.prisma.device.findMany({
-        where: { employeeId: employee.id },
-      });
-      if (boundDevices.length > 0) {
-        const matches = boundDevices.some((d) => d.publicKey === dto.deviceSignature);
-        if (!matches) {
-          throw new ForbiddenException(
-            'Anti-fraud: Device binding verification failed. Unregistered device key.'
-          );
-        }
+    const boundDevices = await this.prisma.device.findMany({
+      where: { employeeId: employee.id },
+    });
+    if (boundDevices.length > 0) {
+      if (!dto.deviceSignature) {
+        throw new ForbiddenException(
+          'Anti-fraud: Employee is enrolled with device binding. Registered deviceSignature is required.'
+        );
+      }
+      const matches = boundDevices.some((d) => d.publicKey === dto.deviceSignature);
+      if (!matches) {
+        throw new ForbiddenException(
+          'Anti-fraud: Device binding verification failed. Unregistered device key.'
+        );
       }
     }
 

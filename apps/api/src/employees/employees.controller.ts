@@ -28,14 +28,14 @@ export class EmployeesController {
     @Body() body: CreateEmployeeDto,
     @Request() req: any
   ): Promise<Employee> {
-    return this.employeesService.createEmployee(body, req.user.id);
+    return this.employeesService.createEmployee(body, req.user.id, req.user.tenantId);
   }
 
   @Get()
   @Roles(UserRole.Admin, UserRole.HR, UserRole.Security)
   @ApiOperation({ summary: 'List all employees' })
-  async getEmployees(): Promise<Employee[]> {
-    return this.employeesService.getEmployees();
+  async getEmployees(@Request() req: any): Promise<Employee[]> {
+    return this.employeesService.getEmployees(req?.user?.tenantId);
   }
 
   @Get(':id')

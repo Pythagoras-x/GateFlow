@@ -47,6 +47,7 @@ model User {
   id           String   @id @default(uuid())
   tenantId     String?
   emailEnc     String   @unique
+  emailHash    String?  @unique
   role         String   @default("Security") // Admin, HR, Security, Host, Auditor
   passwordHash String
   status       String   @default("ACTIVE")
