@@ -1,15 +1,31 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { OnchainContractRole } from '@gateflow/shared-types';
 import { MockStellarClient } from '../mock-stellar-client';
+import { StellarClient } from '../stellar-client';
 import { stringToBytes32, normalizeBytes32Hex } from '../utils';
 
 describe('Stellar Client Package', () => {
   let client: MockStellarClient;
+  let liveClient: StellarClient;
 
   beforeEach(() => {
     client = new MockStellarClient({
       useMock: true,
       networkPassphrase: 'Test SDF Network ; September 2015',
+    });
+    liveClient = new StellarClient({
+      useMock: true,
+      networkPassphrase: 'Test SDF Network ; September 2015',
+    });
+  });
+
+  describe('StellarClient Mock Integration', () => {
+    it('initializes in mock mode when configured', async () => {
+      expect(liveClient.isMock()).toBe(true);
+      const siteId = stringToBytes32('site-mock-01');
+      const tx = await liveClient.registerSite(siteId);
+      expect(tx).toHaveLength(64);
+      expect(await liveClient.isSiteRegistered(siteId)).toBe(true);
     });
   });
 
